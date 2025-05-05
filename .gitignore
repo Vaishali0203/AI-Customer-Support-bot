@@ -11,6 +11,9 @@ frontend/coverage
 # production
 frontend/build
 
+#backend
+app/venv
+
 # misc
 .DS_Store
 .env.local

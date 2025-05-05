@@ -4,25 +4,41 @@ import axios from "axios";
 function App() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([]);
-  const userId = "vaishali";
 
   const sendMessage = async () => {
-    if (!message) return;
-    setChat([...chat, { sender: "User", text: message }]);
+    if (!message.trim()) return;
 
-    const res = await axios.post("http://localhost:8000/chat", {
-      user_id: userId,
-      message: message,
-    });
+    // Show user's message
+    setChat((prev) => [...prev, { sender: "User", text: message }]);
 
-    setChat((prev) => [...prev, { sender: "Bot", text: res.data.reply }]);
+    try {
+      const res = await axios.post("http://localhost:8000/chat", {
+        question: message,
+      });
+
+      setChat((prev) => [...prev, { sender: "Bot", text: res.data.answer }]);
+    } catch (err) {
+      setChat((prev) => [
+        ...prev,
+        { sender: "Bot", text: "Sorry, something went wrong." },
+      ]);
+    }
+
     setMessage("");
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Ardoq Support Bot</h2>
-      <div style={{ height: 300, overflowY: "scroll", border: "1px solid gray", padding: 10 }}>
+    <div style={{ padding: 20, fontFamily: "Arial" }}>
+      <h2>Ardoq Support Assistant</h2>
+      <div
+        style={{
+          height: 300,
+          overflowY: "scroll",
+          border: "1px solid gray",
+          padding: 10,
+          marginBottom: 10,
+        }}
+      >
         {chat.map((msg, i) => (
           <div key={i} style={{ marginBottom: 10 }}>
             <strong>{msg.sender}:</strong> {msg.text}
@@ -31,9 +47,11 @@ function App() {
       </div>
       <input
         type="text"
+        placeholder="Ask a question..."
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        style={{ width: "80%", marginTop: 10 }}
+        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+        style={{ width: "80%", marginRight: 10 }}
       />
       <button onClick={sendMessage}>Send</button>
     </div>
