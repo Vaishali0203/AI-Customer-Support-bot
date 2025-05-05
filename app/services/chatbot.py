@@ -7,9 +7,10 @@ import os
 
 load_dotenv()
 top_dir = os.environ.get("TOP_DIR")
+chroma_dir_path = os.path.join(top_dir, os.environ.get("CHROMA_DIR"))
 
 # Load the vectorstore
-vectordb = Chroma(persist_directory=f"{top_dir}/chroma_db", embedding_function=OpenAIEmbeddings())
+vectordb = Chroma(persist_directory=chroma_dir_path, embedding_function=OpenAIEmbeddings())
 
 # Setup retrieval-based QA chain
 qa_chain = RetrievalQA.from_chain_type(

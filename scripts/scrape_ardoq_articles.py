@@ -5,14 +5,20 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin
 from concurrent.futures import ThreadPoolExecutor
 import time
+from dotenv import load_dotenv
 
 BASE_URL = "https://help.ardoq.com"
 START_URL = f"{BASE_URL}/en/"
 headers = {"User-Agent": "Mozilla/5.0"}
 
+load_dotenv()
+top_dir = os.environ.get("TOP_DIR")
+articles_dir = os.environ.get("ARTICLES_DIR")
+articles_dir_path = os.path.join(top_dir, articles_dir)
+
 visited = set()
 queue = {START_URL}
-os.makedirs("articles", exist_ok=True)
+os.makedirs(articles_dir_path, exist_ok=True)
 
 def download_and_process_page(url):
     """Downloads a page, saves its text content, and extracts new links from <a> tags (ignoring URL fragments for filenames)."""
@@ -30,7 +36,7 @@ def download_and_process_page(url):
         parsed_url = urlparse(url)
         path_segments = [part for part in parsed_url.path.split("/") if part]
         title = path_segments[-1].replace("-", "_").replace(":", "").replace("/", "_") if path_segments else "home"
-        filepath = os.path.join("articles", f"{title}.txt")
+        filepath = os.path.join(articles_dir_path, f"{title}.txt")
         text_content = soup.get_text("\n", strip=True)
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(text_content)
