@@ -20,12 +20,18 @@ visited = set()
 queue = {START_URL}
 os.makedirs(articles_dir_path, exist_ok=True)
 
+def normalize_url(url):
+    """Remove URL fragment to avoid duplicate processing of same page."""
+    parsed = urlparse(url)
+    return parsed._replace(fragment='').geturl()
+
 def download_and_process_page(url):
     """Downloads a page, saves its text content, and extracts new links from <a> tags (ignoring URL fragments for filenames)."""
-    if url in visited:
+    normalized_url = normalize_url(url)
+    if normalized_url in visited:
         return set()
 
-    visited.add(url)
+    visited.add(normalized_url)
     print(f"🔍 Processing URL: {url}")
     try:
         response = requests.get(url, headers=headers)
@@ -47,7 +53,8 @@ def download_and_process_page(url):
         for link_tag in soup.find_all("a", href=True):
             link = urljoin(url, link_tag["href"])
             parsed_link = urlparse(link)
-            if parsed_link.netloc == urlparse(BASE_URL).netloc and link not in visited and link not in queue:
+            normalized_link = normalize_url(link)
+            if parsed_link.netloc == urlparse(BASE_URL).netloc and normalized_link not in visited and normalized_link not in queue:
                 new_links.add(link)
                 print(f"🔗 Found new link: {link}")
         return new_links

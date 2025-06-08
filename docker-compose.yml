@@ -1,0 +1,50 @@
+services:
+  backend:
+    build: 
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - CORS_ORIGINS=http://localhost:3000
+      - TOP_DIR=${TOP_DIR}
+      - CHROMA_DIR=${CHROMA_DIR}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./app:/app
+      - ./data/chroma:/data/chroma
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  scraper:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/data
+    environment:
+      - TOP_DIR=${TOP_DIR}
+      - ARTICLES_DIR=${ARTICLES_DIR}
+      - CHROMA_DIR=${CHROMA_DIR}
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge 
