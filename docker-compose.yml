@@ -10,11 +10,15 @@ services:
       - TOP_DIR=${TOP_DIR}
       - CHROMA_DIR=${CHROMA_DIR}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MONGODB_URI=mongodb://mongodb:27017
     volumes:
       - ./app:/app
       - ./data/chroma:/data/chroma
     networks:
       - app-network
+    depends_on:
+      - mongodb
+    restart: on-failure
 
   frontend:
     build:
@@ -42,9 +46,22 @@ services:
       - TOP_DIR=${TOP_DIR}
       - ARTICLES_DIR=${ARTICLES_DIR}
       - CHROMA_DIR=${CHROMA_DIR}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
     networks:
       - app-network
 
 networks:
   app-network:
-    driver: bridge 
+    driver: bridge
+
+volumes:
+  mongodb_data:

@@ -1,9 +1,10 @@
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI
+from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import os
+from .mongodb import mongodb
 
 load_dotenv()
 top_dir = os.environ.get("TOP_DIR")
@@ -19,7 +20,9 @@ qa_chain = RetrievalQA.from_chain_type(
     retriever=vectordb.as_retriever()
 )
 
-def generate_response(question: str) -> str:
+async def generate_response(question: str) -> str:
     answer = qa_chain.run(question)
+    # Store the conversation in MongoDB with session ID
+    await mongodb.store_chat(question, answer)
     return answer
 
