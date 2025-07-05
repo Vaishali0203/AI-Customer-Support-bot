@@ -2,9 +2,10 @@ from langchain_chroma import Chroma
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
+from langchain.retrievers.ensemble import EnsembleRetriever
 from dotenv import load_dotenv
 import os
-from .mongodb import mongodb
+from .mongodb import mongodb, mongodb_retriever
 import openai
 
 load_dotenv()
@@ -13,12 +14,19 @@ chroma_dir_path = os.path.join(top_dir, os.environ.get("CHROMA_DIR"))
 
 # Load the vectorstore
 vectordb = Chroma(persist_directory=chroma_dir_path, embedding_function=OpenAIEmbeddings())
+vector_retriever = vectordb.as_retriever()
 
-# Setup retrieval-based QA chain
+# Create ensemble retriever combining both vector DB and MongoDB
+ensemble_retriever = EnsembleRetriever(
+    retrievers=[vector_retriever, mongodb_retriever],
+    weights=[0.7, 0.3]  # 70% weight to vector DB, 30% to MongoDB chat history
+)
+
+# Setup retrieval-based QA chain with ensemble retriever
 qa_chain = RetrievalQA.from_chain_type(
     llm=ChatOpenAI(temperature=0),
     chain_type="stuff",
-    retriever=vectordb.as_retriever()
+    retriever=ensemble_retriever
 )
 
 def parse_history_to_openai_format(history):
@@ -29,32 +37,7 @@ def parse_history_to_openai_format(history):
     return chat_history
 
 async def generate_response(question: str) -> str:
-    # Retrieve chat history from MongoDB
-    history = await mongodb.get_chat_history(limit=10)
-    chat_history = [
-        item
-        for doc in history
-        for item in ({"role": "user", "content": doc["question"]}, {"role": "assistant", "content": doc["answer"]})
-    ]
-
-    # Prepare messages for OpenAI
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant. Attached is the list previous interactions with the user. Use this information to answer the user's question."},
-        *chat_history,
-        {"role": "user", "content": question}
-    ]
-
-    print("Messages sent to OpenAI/qa_chain:", messages)
-
-    # Convert messages to a single string prompt
-    prompt = ""
-    for msg in messages:
-        prompt += f"{msg['role'].capitalize()}: {msg['content']}\n"
-    
-    # Use qa_chain to generate the answer
-    answer = qa_chain.run(prompt)
-
-    # Store the conversation in MongoDB
-    await mongodb.store_chat(question, answer)
+    # Use qa_chain to generate the answer with ensemble context
+    answer = qa_chain.run(question)
     return answer
 
