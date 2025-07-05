@@ -46,10 +46,15 @@ async def generate_response(question: str) -> str:
 
     print("Messages sent to OpenAI/qa_chain:", messages)
 
+    # Convert messages to a single string prompt
+    prompt = ""
+    for msg in messages:
+        prompt += f"{msg['role'].capitalize()}: {msg['content']}\n"
+    
     # Use qa_chain to generate the answer
-    answer = qa_chain.run(messages)
+    answer = qa_chain.run(prompt)
 
     # Store the conversation in MongoDB
-    await mongodb.store_chat(question, messages)
+    await mongodb.store_chat(question, answer)
     return answer
 
