@@ -47,7 +47,7 @@ async def generate_response(question: str) -> str:
     print("Messages sent to OpenAI/qa_chain:", messages)
 
     # Use qa_chain to generate the answer
-    answer = qa_chain.run(question)
+    answer = qa_chain.run(messages)
 
     # Store the conversation in MongoDB
     await mongodb.store_chat(question, messages)
