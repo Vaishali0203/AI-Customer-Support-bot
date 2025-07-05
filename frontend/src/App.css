@@ -80,14 +80,27 @@
 .status-dot {
   width: 8px;
   height: 8px;
-  background: #4ade80;
   border-radius: 50%;
   animation: pulse 2s infinite;
+}
+
+.status-dot.online {
+  background: #4ade80;
+}
+
+.status-dot.offline {
+  background: #ef4444;
+  animation: pulseRed 2s infinite;
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+
+@keyframes pulseRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* Messages Area */

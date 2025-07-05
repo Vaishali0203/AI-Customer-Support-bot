@@ -6,6 +6,7 @@ function App() {
   const [message, setMessage] = useState("");
   const [chat, setChat] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isBackendOnline, setIsBackendOnline] = useState(true);
   const chatEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -15,6 +16,30 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [chat]);
+
+  // Backend health check function
+  const checkBackendHealth = async () => {
+    try {
+      const response = await axios.get("http://localhost:8000/", {
+        timeout: 5000 // 5 second timeout
+      });
+      setIsBackendOnline(response.status === 200);
+    } catch (error) {
+      setIsBackendOnline(false);
+    }
+  };
+
+  // Monitor backend health
+  useEffect(() => {
+    // Check immediately on mount
+    checkBackendHealth();
+    
+    // Set up interval to check every 30 seconds
+    const healthCheckInterval = setInterval(checkBackendHealth, 30000);
+    
+    // Cleanup interval on unmount
+    return () => clearInterval(healthCheckInterval);
+  }, []);
 
   const sendMessage = async () => {
     if (!message.trim() || isLoading) return;
@@ -32,7 +57,9 @@ function App() {
       });
 
       setChat((prev) => [...prev, { sender: "bot", text: res.data.answer, timestamp: new Date() }]);
+      setIsBackendOnline(true); // Mark backend as online if message sent successfully
     } catch (err) {
+      setIsBackendOnline(false); // Mark backend as offline on error
       setChat((prev) => [
         ...prev,
         { 
@@ -65,8 +92,8 @@ function App() {
               </div>
             </div>
             <div className="status-indicator">
-              <div className="status-dot"></div>
-              <span>Online</span>
+              <div className={`status-dot ${isBackendOnline ? 'online' : 'offline'}`}></div>
+              <span>{isBackendOnline ? 'Online' : 'Offline'}</span>
             </div>
           </div>
         </div>
@@ -118,16 +145,16 @@ function App() {
           <div className="input-container">
             <input
               type="text"
-              placeholder="Type your message here..."
+              placeholder={isBackendOnline ? "Type your message here..." : "Agent is offline..."}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              disabled={isLoading}
+              disabled={isLoading || !isBackendOnline}
               className="message-input"
             />
             <button 
               onClick={sendMessage} 
-              disabled={!message.trim() || isLoading}
+              disabled={!message.trim() || isLoading || !isBackendOnline}
               className="send-button"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
