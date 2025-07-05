@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from schemas.chat import ChatRequest
+from schemas.chat import ChatRequest, ChatResponse
 from services.chatbot import generate_response
 from services.mongodb import mongodb
 
@@ -9,13 +9,30 @@ router = APIRouter()
 async def root():
     return {"message": "Hello World"}
 
-@router.post("/chat")
+@router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    answer = await generate_response(request.question)
+    response = await generate_response(request.question)
+    answer = response["answer"]
+    references = response["references"]
+
+    # Store chat in MongoDB
     await mongodb.store_chat(request.question, answer)
-    return {"answer": answer}
+
+    return ChatResponse(
+        answer=answer,
+        references=references
+    )
 
 @router.get("/chat/history")
 async def get_chat_history(limit: int = 10):
     history = await mongodb.get_chat_history(limit)
-    return {"history": [{"question": doc["question"], "answer": doc["answer"], "timestamp": doc["timestamp"]} for doc in history]}
+    return {
+        "history": [
+            {
+                "question": doc["question"], 
+                "answer": doc["answer"], 
+                "timestamp": doc["timestamp"]
+            } 
+            for doc in history
+        ]
+    }
