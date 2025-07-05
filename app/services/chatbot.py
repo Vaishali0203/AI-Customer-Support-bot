@@ -1,32 +1,18 @@
-from langchain_chroma import Chroma
-from langchain_community.embeddings import OpenAIEmbeddings
+from dotenv import load_dotenv
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
-from langchain.retrievers.ensemble import EnsembleRetriever
-from dotenv import load_dotenv
-import os
-from .mongodb import mongodb, mongodb_retriever
-import openai
+
+from prompts.support_prompt import support_prompt
+from retrievers.ensemble_retriever import ensemble_retriever
 
 load_dotenv()
-top_dir = os.environ.get("TOP_DIR")
-chroma_dir_path = os.path.join(top_dir, os.environ.get("CHROMA_DIR"))
 
-# Load the vectorstore
-vectordb = Chroma(persist_directory=chroma_dir_path, embedding_function=OpenAIEmbeddings())
-vector_retriever = vectordb.as_retriever()
-
-# Create ensemble retriever combining both vector DB and MongoDB
-ensemble_retriever = EnsembleRetriever(
-    retrievers=[vector_retriever, mongodb_retriever],
-    weights=[0.7, 0.3]  # 70% weight to vector DB, 30% to MongoDB chat history
-)
-
-# Setup retrieval-based QA chain with ensemble retriever
+# Setup retrieval-based QA chain with custom prompt
 qa_chain = RetrievalQA.from_chain_type(
-    llm=ChatOpenAI(temperature=0),
+    llm=ChatOpenAI(temperature=0.3),  # Higher temperature for natural responses
     chain_type="stuff",
-    retriever=ensemble_retriever
+    retriever=ensemble_retriever,
+    chain_type_kwargs={"prompt": support_prompt}
 )
 
 def parse_history_to_openai_format(history):

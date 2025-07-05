@@ -1,10 +1,8 @@
+import os
+from datetime import datetime, timezone
+
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
-from datetime import datetime, timezone
-import os
-from langchain.schema import Document
-from langchain_core.retrievers import BaseRetriever
-from typing import List, Any
 
 class MongoDB:
     def __init__(self):
@@ -42,46 +40,4 @@ class MongoDB:
             print(f"MongoDB Sync Error: {e}")
             return []
 
-class MongoDBRetriever(BaseRetriever):
-    """Simple MongoDB retriever that returns the last 5 chats for context"""
-    
-    mongodb_instance: Any
-    limit: int
-    
-    @classmethod
-    def create(cls, mongodb_instance: MongoDB, limit: int = 5):
-        """Factory method to create MongoDBRetriever - reuses MongoDB instance's sync client"""
-        return cls(mongodb_instance=mongodb_instance, limit=limit)
-
-    def _get_relevant_documents(self, query: str) -> List[Document]:
-        """Simply return the last N chats for conversation context"""
-        try:
-            # Use the sync method from MongoDB instance
-            results = self.mongodb_instance.get_chat_history_sync(self.limit)
-            
-            documents = []
-            for result in results:
-                # Create document from Q&A pair
-                content = f"Previous conversation:\nUser: {result['question']}\nAssistant: {result['answer']}"
-                doc = Document(
-                    page_content=content,
-                    metadata={
-                        "source": "chat_history",
-                        "timestamp": result["timestamp"],
-                        "question": result["question"],
-                        "answer": result["answer"]
-                    }
-                )
-                documents.append(doc)
-            
-            return documents
-        except Exception as e:
-            print(f"MongoDB Retriever Error: {e}")
-            return []
-
-    async def _aget_relevant_documents(self, query: str) -> List[Document]:
-        """Async version - delegates to sync version"""
-        return self._get_relevant_documents(query)
-
 mongodb = MongoDB()
-mongodb_retriever = MongoDBRetriever.create(mongodb)
