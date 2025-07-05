@@ -7,6 +7,7 @@ function App() {
   const [chat, setChat] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
+  const [expandedReferences, setExpandedReferences] = useState(new Set());
   const chatEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -56,7 +57,12 @@ function App() {
         question: userMessage,
       });
 
-      setChat((prev) => [...prev, { sender: "bot", text: res.data.answer, timestamp: new Date() }]);
+      setChat((prev) => [...prev, { 
+        sender: "bot", 
+        text: res.data.answer, 
+        references: res.data.references || [], 
+        timestamp: new Date() 
+      }]);
       setIsBackendOnline(true); // Mark backend as online if message sent successfully
     } catch (err) {
       setIsBackendOnline(false); // Mark backend as offline on error
@@ -76,6 +82,18 @@ function App() {
 
   const formatTime = (timestamp) => {
     return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const toggleReferences = (messageIndex) => {
+    setExpandedReferences(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageIndex)) {
+        newSet.delete(messageIndex);
+      } else {
+        newSet.add(messageIndex);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -119,6 +137,38 @@ function App() {
                   {msg.sender === 'user' ? '👤' : '🤖'}
                 </div>
               </div>
+              {msg.sender === 'bot' && msg.references && msg.references.length > 0 && (
+                <div className="references-section">
+                  <button
+                    className="references-toggle"
+                    onClick={() => toggleReferences(i)}
+                  >
+                    <span className="references-icon">
+                      {expandedReferences.has(i) ? '▼' : '▶'}
+                    </span>
+                    <span className="references-text">
+                      References ({msg.references.length})
+                    </span>
+                  </button>
+                  {expandedReferences.has(i) && (
+                    <div className="references-content">
+                      {msg.references.map((ref, refIndex) => (
+                        <div key={refIndex} className="reference-item">
+                          <div className="reference-title">{ref.title || `Reference ${refIndex + 1}`}</div>
+                          {ref.url && (
+                            <a href={ref.url} target="_blank" rel="noopener noreferrer" className="reference-link">
+                              {ref.url}
+                            </a>
+                          )}
+                          {ref.content && (
+                            <div className="reference-content">{ref.content}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           
