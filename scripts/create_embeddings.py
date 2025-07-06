@@ -1,6 +1,7 @@
 import os
+import shutil
 from dotenv import load_dotenv
-from langchain_community.document_loaders import TextLoader
+from langchain_community.document_loaders import TextLoader, DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAIEmbeddings
@@ -14,11 +15,11 @@ articles_dir_path = os.path.join(top_dir, articles_dir)
 chroma_dir_path = os.path.join(top_dir, chroma_dir)
 
 # Load all text files
-docs = []
-for file in os.listdir(articles_dir_path):
-    if file.endswith(".txt"):
-        loader = TextLoader(os.path.join(articles_dir_path, file))
-        docs.extend(loader.load())
+loader = DirectoryLoader(articles_dir_path, glob="*", loader_cls=TextLoader)
+docs = loader.load()
+# Still need to clean metadata
+for doc in docs:
+    doc.metadata['source'] = os.path.basename(doc.metadata['source'])
 
 # Split into smaller chunks
 splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -27,8 +28,15 @@ chunks = splitter.split_documents(docs)
 # Create embeddings
 embedding = OpenAIEmbeddings()
 
-# Save to Chroma
-vectordb = Chroma.from_documents(chunks, embedding, persist_directory=chroma_dir_path)
+# Atomic rename - create in temp directory then move
+temp_dir = chroma_dir_path.rstrip('/') + ".tmp"
+vectordb = Chroma.from_documents(chunks, embedding, 
+                                persist_directory=temp_dir)
 vectordb.persist()
+
+# Remove old data and atomically move new data
+if os.path.exists(chroma_dir_path):
+    shutil.rmtree(chroma_dir_path)
+os.rename(temp_dir, chroma_dir_path)
 
 print("✅ Embeddings stored in Chroma.")

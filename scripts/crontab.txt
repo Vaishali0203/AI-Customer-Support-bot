@@ -1,1 +1,1 @@
-0 2 * * 0 cd /app && python scrape_ardoq_articles.py && python create_embeddings.py >> /var/log/cron.log 2>&1 
+0 2 * * 0 cd /app && python scrape_ardoq_articles.py && python cleanup_temp_articles.py && python create_embeddings.py && python cleanup_old_articles.py >> /var/log/cron.log 2>&1
