@@ -23,6 +23,31 @@ function App() {
     return crypto.randomUUID();
   };
 
+  // Session ID management functions
+  const saveSessionId = (sessionId) => {
+    const existingSessionIds = JSON.parse(localStorage.getItem('sessionIds') || '[]');
+    if (!existingSessionIds.includes(sessionId)) {
+      existingSessionIds.push(sessionId);
+      localStorage.setItem('sessionIds', JSON.stringify(existingSessionIds));
+    }
+  };
+
+  const removeSessionId = (sessionId) => {
+    const existingSessionIds = JSON.parse(localStorage.getItem('sessionIds') || '[]');
+    const updatedSessionIds = existingSessionIds.filter(id => id !== sessionId);
+    localStorage.setItem('sessionIds', JSON.stringify(updatedSessionIds));
+  };
+
+  const clearAllSessionIds = () => {
+    localStorage.removeItem('sessionIds');
+  };
+
+  const initializeSessionIds = (chatsData) => {
+    const sessionIds = Object.values(chatsData).map(chat => chat.sessionId);
+    localStorage.setItem('sessionIds', JSON.stringify(sessionIds));
+    console.log('Initialized session IDs:', sessionIds);
+  };
+
   // Toggle dark mode
   const toggleDarkMode = () => {
     setDarkMode(prev => {
@@ -118,6 +143,9 @@ function App() {
       createdAt: new Date().toISOString()
     };
     
+    // Save the session ID to localStorage
+    saveSessionId(newChatId);
+    
     setChats(prev => ({
       ...prev,
       [newChatId]: newChat
@@ -173,14 +201,17 @@ function App() {
     }
   }, [chats]);
 
-  // Initialize chats from sessionStorage
+  // Initialize chats from localStorage
   useEffect(() => {
-    const storedChats = sessionStorage.getItem('chats');
-    const storedActiveChat = sessionStorage.getItem('activeChat');
+    const storedChats = localStorage.getItem('chats');
+    const storedActiveChat = localStorage.getItem('activeChat');
     
     if (storedChats) {
       const parsedChats = JSON.parse(storedChats);
       setChats(parsedChats);
+      
+      // Initialize session IDs from existing chats
+      initializeSessionIds(parsedChats);
       
       if (storedActiveChat && parsedChats[storedActiveChat]) {
         setActiveChat(storedActiveChat);
@@ -202,17 +233,23 @@ function App() {
     }
   }, [activeChat, chats, loadChatHistory]);
 
-  // Save chats to sessionStorage whenever chats change
+  // Save chats to localStorage whenever chats change
   useEffect(() => {
     if (Object.keys(chats).length > 0) {
-      sessionStorage.setItem('chats', JSON.stringify(chats));
+      localStorage.setItem('chats', JSON.stringify(chats));
+    } else {
+      // Clear localStorage when no chats remain
+      localStorage.removeItem('chats');
+      localStorage.removeItem('activeChat');
     }
   }, [chats]);
 
-  // Save active chat to sessionStorage whenever it changes
+  // Save active chat to localStorage whenever it changes
   useEffect(() => {
     if (activeChat) {
-      sessionStorage.setItem('activeChat', activeChat);
+      localStorage.setItem('activeChat', activeChat);
+    } else {
+      localStorage.removeItem('activeChat');
     }
   }, [activeChat]);
 
@@ -238,45 +275,12 @@ function App() {
       // Call backend API to delete chat by session ID
       await axios.delete(`http://localhost:8000/chat/session/${chat.sessionId}`);
       console.log(`Successfully deleted chat session ${chat.sessionId} from backend`);
-    } catch (error) {
-      console.error(`Failed to delete chat session ${chat.sessionId} from backend:`, error);
-      // Continue with local deletion even if backend call fails
-    }
+      
+      // Only proceed with frontend deletion if backend deletion succeeds
+      // Remove session ID from localStorage
+      removeSessionId(chat.sessionId);
 
-    // Remove from local state
-    setChats(prev => {
-      const newChats = { ...prev };
-      delete newChats[chatId];
-      return newChats;
-    });
-    
-    if (activeChat === chatId) {
-      // Switch to another chat if deleting the active one
-      const remainingChats = Object.keys(chats).filter(id => id !== chatId);
-      if (remainingChats.length > 0) {
-        setActiveChat(remainingChats[0]);
-      } else {
-        // No chats left, clear active chat
-        setActiveChat(null);
-      }
-    }
-  };
-
-  // Delete a chat by session ID
-  const deleteChatBySessionId = async (sessionId) => {
-    try {
-      // Call backend API to delete chat by session ID
-      await axios.delete(`http://localhost:8000/chat/session/${sessionId}`);
-      console.log(`Successfully deleted chat session ${sessionId} from backend`);
-    } catch (error) {
-      console.error(`Failed to delete chat session ${sessionId} from backend:`, error);
-      // Continue with local deletion even if backend call fails
-    }
-
-    // Find and remove from local state
-    const chatEntry = Object.entries(chats).find(([, chat]) => chat.sessionId === sessionId);
-    if (chatEntry) {
-      const [chatId] = chatEntry;
+      // Remove from local state
       setChats(prev => {
         const newChats = { ...prev };
         delete newChats[chatId];
@@ -293,31 +297,83 @@ function App() {
           setActiveChat(null);
         }
       }
+    } catch (error) {
+      console.error(`Failed to delete chat session ${chat.sessionId} from backend:`, error);
+      // Don't delete from frontend if backend deletion fails
+      alert('Failed to delete chat. Please check your connection and try again.');
+    }
+  };
+
+  // Delete a chat by session ID
+  const deleteChatBySessionId = async (sessionId) => {
+    try {
+      // Call backend API to delete chat by session ID
+      await axios.delete(`http://localhost:8000/chat/session/${sessionId}`);
+      console.log(`Successfully deleted chat session ${sessionId} from backend`);
+      
+      // Only proceed with frontend deletion if backend deletion succeeds
+      // Remove session ID from localStorage
+      removeSessionId(sessionId);
+
+      // Find and remove from local state
+      const chatEntry = Object.entries(chats).find(([, chat]) => chat.sessionId === sessionId);
+      if (chatEntry) {
+        const [chatId] = chatEntry;
+        setChats(prev => {
+          const newChats = { ...prev };
+          delete newChats[chatId];
+          return newChats;
+        });
+        
+        if (activeChat === chatId) {
+          // Switch to another chat if deleting the active one
+          const remainingChats = Object.keys(chats).filter(id => id !== chatId);
+          if (remainingChats.length > 0) {
+            setActiveChat(remainingChats[0]);
+          } else {
+            // No chats left, clear active chat
+            setActiveChat(null);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to delete chat session ${sessionId} from backend:`, error);
+      // Don't delete from frontend if backend deletion fails
+      alert('Failed to delete chat. Please check your connection and try again.');
     }
   };
 
   // Delete all chats
   const deleteAllChats = async () => {
-    // Get all unique session IDs
-    const sessionIds = [...new Set(Object.values(chats).map(chat => chat.sessionId))];
+    if (Object.keys(chats).length === 0) return;
     
-    // Delete each session from backend
-    const deletePromises = sessionIds.map(async (sessionId) => {
-      try {
+    if (window.confirm('Are you sure you want to delete all chats? This action cannot be undone.')) {
+      // Get all unique session IDs
+      const sessionIds = [...new Set(Object.values(chats).map(chat => chat.sessionId))];
+      
+      // Delete each session from backend
+      const deletePromises = sessionIds.map(async (sessionId) => {
         await axios.delete(`http://localhost:8000/chat/session/${sessionId}`);
         console.log(`Successfully deleted chat session ${sessionId} from backend`);
+      });
+
+      try {
+        // Wait for all deletions to complete - if any fail, this will throw an error
+        await Promise.all(deletePromises);
+
+        // Only proceed with frontend deletion if all backend deletions succeed
+        // Clear all session IDs from localStorage
+        clearAllSessionIds();
+
+        // Clear local state
+        setChats({});
+        setActiveChat(null);
+        setExpandedReferences(new Set());
       } catch (error) {
-        console.error(`Failed to delete chat session ${sessionId} from backend:`, error);
+        console.error('Some chats failed to delete from backend:', error);
+        alert('Some chats could not be deleted. Please check your connection and try again.');
       }
-    });
-
-    // Wait for all deletions to complete (or fail)
-    await Promise.allSettled(deletePromises);
-
-    // Clear local state
-    setChats({});
-    setActiveChat(null);
-    setExpandedReferences(new Set());
+    }
   };
 
   const scrollToBottom = () => {
