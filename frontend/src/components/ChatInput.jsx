@@ -1,15 +1,90 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import useBackendHealth from '../hooks/useBackendHealth';
 import "../css/ChatInput.css";
 
 const ChatInput = ({ 
-  message, 
-  setMessage, 
-  onSendMessage, 
-  isLoading, 
-  isBackendOnline,
-  onHeightChange,
-  onCreateNewChat
+  chats,
+  setChats,
+  activeChat,
+  setActiveChat,
+  getCurrentChat,
+  onCreateNewChat,
+  onHeightChange
 }) => {
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { isBackendOnline } = useBackendHealth();
+
+  const sendMessage = async () => {
+    if (!message.trim() || isLoading) return;
+
+    // Create chat if none exists
+    let currentChat = getCurrentChat();
+    let currentChatId = activeChat;
+    if (!currentChat) {
+      const { chatId, chat } = onCreateNewChat();
+      currentChat = chat;
+      currentChatId = chatId;
+    }
+
+    const userMessage = message.trim();
+    setMessage("");
+    setIsLoading(true);
+
+    // Show user's message
+    const userMessageObj = { sender: "user", text: userMessage, timestamp: new Date() };
+    setChats(prev => ({
+      ...prev,
+      [currentChatId]: {
+        ...prev[currentChatId],
+        messages: [...prev[currentChatId].messages, userMessageObj],
+        lastActivity: new Date().toISOString()
+      }
+    }));
+
+    try {
+      const res = await axios.post("http://localhost:8000/chat", {
+        question: userMessage,
+        session_id: currentChat.sessionId,
+      });
+
+      const botMessageObj = { 
+        sender: "bot", 
+        text: res.data.answer, 
+        references: res.data.references || [], 
+        timestamp: new Date() 
+      };
+
+      setChats(prev => ({
+        ...prev,
+        [currentChatId]: {
+          ...prev[currentChatId],
+          messages: [...prev[currentChatId].messages, botMessageObj],
+          lastActivity: new Date().toISOString()
+        }
+      }));
+    } catch (err) {
+      const errorMessageObj = { 
+        sender: "bot", 
+        text: "Sorry, I'm having trouble connecting right now. Please try again in a moment.", 
+        timestamp: new Date(),
+        isError: true
+      };
+      
+      setChats(prev => ({
+        ...prev,
+        [currentChatId]: {
+          ...prev[currentChatId],
+          messages: [...prev[currentChatId].messages, errorMessageObj],
+          lastActivity: new Date().toISOString()
+        }
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Reset textarea height when message is sent
   useEffect(() => {
     const textarea = document.querySelector('.message-input');
@@ -24,7 +99,7 @@ const ChatInput = ({
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSendMessage();
+      sendMessage();
     }
   };
 
@@ -75,7 +150,7 @@ const ChatInput = ({
           />
           <div className="send-button-container">
             <button 
-              onClick={onSendMessage} 
+              onClick={sendMessage} 
               disabled={!message.trim() || isLoading || !isBackendOnline}
               className="send-button"
             >
