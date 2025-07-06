@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import axios from "axios";
 import Sidebar from "./Sidebar";
 import ChatInput from "./ChatInput";
+import Message from "./Message";
 import "./App.css";
 
 function App() {
@@ -437,13 +438,13 @@ function App() {
 
   const toggleReferences = (messageIndex) => {
     setExpandedReferences(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(messageIndex)) {
-        newSet.delete(messageIndex);
+      // If clicking on an already expanded reference, collapse it
+      if (prev.has(messageIndex)) {
+        return new Set();
       } else {
-        newSet.add(messageIndex);
+        // Otherwise, collapse all others and expand this one
+        return new Set([messageIndex]);
       }
-      return newSet;
     });
   };
 
@@ -505,76 +506,43 @@ function App() {
 
         {/* Chat Messages */}
         <div className="chat-messages">
-          {(!hasChats || currentMessages.length === 0) && (
-            <div className="welcome-message">
-              <div className="welcome-icon">👋</div>
-              <h2>Welcome to Ardoq Support!</h2>
-              <p>I'm here to help you with any questions about Ardoq. How can I assist you today?</p>
-            </div>
-          )}
-          
-          {currentMessages.map((msg, i) => (
-            <div key={i} className={`message ${msg.sender}`}>
-              <div className="message-content">
-                <div className="message-bubble">
-                  <p>{msg.text}</p>
-                  <span className="message-time">{formatTime(msg.timestamp)}</span>
-                </div>
-                <div className="message-avatar">
-                  {msg.sender === 'user' ? '👤' : '🤖'}
-                </div>
+          <div className="messages-container">
+            {(!hasChats || currentMessages.length === 0) && (
+              <div className="welcome-message">
+                <div className="welcome-icon">👋</div>
+                <h2>Welcome to Ardoq Support!</h2>
+                <p>I'm here to help you with any questions about Ardoq. How can I assist you today?</p>
               </div>
-              {msg.sender === 'bot' && msg.references && msg.references.length > 0 && (
-                <div className="references-section">
-                  <button
-                    className="references-toggle"
-                    onClick={() => toggleReferences(i)}
-                  >
-                    <span className="references-icon">
-                      {expandedReferences.has(i) ? '▼' : '▶'}
-                    </span>
-                    <span className="references-text">
-                      References ({msg.references.length})
-                    </span>
-                  </button>
-                  {expandedReferences.has(i) && (
-                    <div className="references-content">
-                      {msg.references.map((ref, refIndex) => (
-                        <div key={refIndex} className="reference-item">
-                          <div className="reference-title">{ref.title || `Reference ${refIndex + 1}`}</div>
-                          {ref.url && (
-                            <a href={ref.url} target="_blank" rel="noopener noreferrer" className="reference-link">
-                              {ref.url}
-                            </a>
-                          )}
-                          {ref.content && (
-                            <div className="reference-content">{ref.content}</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-          
-          {isLoading && (
-            <div className="message bot">
-              <div className="message-content">
-                <div className="message-bubble loading">
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                </div>
-                <div className="message-avatar">🤖</div>
-              </div>
-            </div>
-          )}
-          
-          <div ref={chatEndRef} />
+            )}
+            
+            {currentMessages.map((msg, i) => (
+              <Message
+                key={i}
+                message={msg}
+                index={i}
+                isExpanded={expandedReferences.has(i)}
+                onToggleReferences={toggleReferences}
+                formatTime={formatTime}
+              />
+            ))}
+            
+            {isLoading && (
+              <Message
+                message={{
+                  sender: 'bot',
+                  text: '',
+                  timestamp: new Date(),
+                  isLoading: true
+                }}
+                index={-1}
+                isExpanded={false}
+                onToggleReferences={() => {}}
+                formatTime={formatTime}
+              />
+            )}
+            
+            <div ref={chatEndRef} />
+          </div>
         </div>
 
         {/* Input Area */}

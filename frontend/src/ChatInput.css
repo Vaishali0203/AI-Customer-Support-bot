@@ -4,11 +4,16 @@
   background: var(--bg-primary);
   border-top: 1px solid var(--border-primary);
   flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.input-wrapper {
+.input-container-wrapper {
+  width: 100%;
+  max-width: 900px;
   display: flex;
-  align-items: stretch;
+  align-items: flex-end;
   gap: 12px;
 }
 
@@ -103,10 +108,11 @@
 
 .send-button-container {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   min-height: 52px;
   width: 52px;
+  padding-bottom: 4px;
 }
 
 .send-button {
@@ -155,13 +161,15 @@
     padding: 16px 64px;
   }
 
+  .input-container-wrapper {
+    max-width: 600px;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
   /* Fix padding when sidebar is collapsed on tablet */
   .sidebar-collapsed .chat-input {
     padding: 16px 18px;
-  }
-  
-  .input-wrapper {
-    gap: 10px;
   }
   
   .new-chat-button {
@@ -190,6 +198,7 @@
   
   .send-button-container {
     min-height: 48px;
+    padding-bottom: 4px;
   }
   
   .send-button {
@@ -209,13 +218,15 @@
     padding: 16px 40px;
   }
 
+  .input-container-wrapper {
+    max-width: 400px;
+    gap: 8px;
+    align-items: flex-end;
+  }
+
   /* Fix padding when sidebar is collapsed on mobile */
   .sidebar-collapsed .chat-input {
     padding: 16px 6px;
-  }
-  
-  .input-wrapper {
-    gap: 8px;
   }
   
   .new-chat-button {
@@ -244,6 +255,7 @@
   
   .send-button-container {
     min-height: 44px;
+    padding-bottom: 4px;
   }
   
   .send-button {

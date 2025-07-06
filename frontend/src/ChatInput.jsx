@@ -43,7 +43,7 @@ const ChatInput = ({
 
   return (
     <div className="chat-input">
-      <div className="input-wrapper">
+      <div className="input-container-wrapper">
         <button 
           className="new-chat-button"
           onClick={onCreateNewChat}
