@@ -3,7 +3,7 @@ from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
 from typing import Dict, List, Any
 
-from prompts.support_prompt import support_prompt
+from prompts.customer_support_prompt import support_prompt
 from retrievers.ensemble_retriever import ensemble_retriever
 
 load_dotenv()
