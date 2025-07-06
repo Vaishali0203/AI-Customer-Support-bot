@@ -137,6 +137,11 @@
   .chat-input {
     padding: 16px 64px;
   }
+
+  /* Fix padding when sidebar is collapsed on tablet */
+  .sidebar-collapsed .chat-input {
+    padding: 16px 18px;
+  }
   
   .input-wrapper {
     gap: 10px;
@@ -185,6 +190,11 @@
 @media (max-width: 480px) {
   .chat-input {
     padding: 16px 40px;
+  }
+
+  /* Fix padding when sidebar is collapsed on mobile */
+  .sidebar-collapsed .chat-input {
+    padding: 16px 6px;
   }
   
   .input-wrapper {

@@ -11,6 +11,8 @@ function App() {
   const [expandedReferences, setExpandedReferences] = useState(new Set());
   const [chats, setChats] = useState({});
   const [activeChat, setActiveChat] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [userManuallyCollapsed, setUserManuallyCollapsed] = useState(false);
 
   const chatEndRef = useRef(null);
 
@@ -18,6 +20,64 @@ function App() {
   const generateSessionId = () => {
     return crypto.randomUUID();
   };
+
+  // Toggle sidebar visibility
+  const toggleSidebar = () => {
+    setSidebarCollapsed(prev => {
+      const newCollapsed = !prev;
+      setUserManuallyCollapsed(newCollapsed);
+      return newCollapsed;
+    });
+  };
+
+  // Check if screen is small based on aspect ratio and dimensions (mobile/tablet)
+  const isSmallScreen = () => {
+    const aspectRatio = window.innerWidth / window.innerHeight;
+    const smallerDimension = Math.min(window.innerWidth, window.innerHeight);
+    
+    // Portrait or square-ish screens (mobile portrait, tablet portrait)
+    if (aspectRatio < 1.0) return true;
+    
+    // Landscape but with small height (mobile landscape, small tablets)
+    if (smallerDimension < 600) return true;
+    
+    // Wide landscape screens with sufficient height (desktop)
+    return false;
+  };
+
+  // Handle responsive sidebar behavior
+  useEffect(() => {
+    const handleResize = () => {
+      const smallScreen = isSmallScreen();
+      
+      if (smallScreen && !userManuallyCollapsed) {
+        // Auto-collapse on small screens unless user manually collapsed
+        setSidebarCollapsed(true);
+      } else if (!smallScreen && !userManuallyCollapsed) {
+        // Auto-expand on large screens unless user manually collapsed
+        setSidebarCollapsed(false);
+      }
+      // If user manually collapsed, respect their choice regardless of screen size
+    };
+
+    // Set initial state based on screen size
+    handleResize();
+
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [userManuallyCollapsed]);
+
+  // Reset user preference when they manually expand on small screen
+  useEffect(() => {
+    if (!sidebarCollapsed && isSmallScreen()) {
+      setUserManuallyCollapsed(false);
+    }
+  }, [sidebarCollapsed]);
 
   // Create a new chat
   const createNewChat = useCallback(() => {
@@ -232,8 +292,6 @@ function App() {
     setExpandedReferences(new Set());
   };
 
-
-
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -248,8 +306,6 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [activeChat, chats]);
-
-
 
   // Backend health check function
   const checkBackendHealth = async () => {
@@ -364,8 +420,6 @@ function App() {
     });
   };
 
-
-
   const currentChat = getCurrentChat();
   const currentMessages = currentChat ? currentChat.messages : [];
   const hasChats = Object.keys(chats).length > 0;
@@ -380,12 +434,23 @@ function App() {
         onDeleteChat={deleteChat}
         onDeleteChatBySessionId={deleteChatBySessionId}
         onDeleteAllChats={deleteAllChats}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={toggleSidebar}
       />
       
-      <div className="chat-container">
+      <div className={`chat-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
         {/* Header */}
         <div className="chat-header">
           <div className="header-content">
+            {sidebarCollapsed && (
+              <button className="expand-sidebar-button" onClick={toggleSidebar} title="Show sidebar">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
             <div className="logo">
               <div className="logo-icon">🤖</div>
               <div className="logo-text">
