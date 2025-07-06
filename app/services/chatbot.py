@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from langchain.chains import RetrievalQA
 from langchain_openai import ChatOpenAI
 from typing import Dict, List, Any
+from pprint import pprint
 
 from prompts.customer_support_prompt import support_prompt
 from retrievers.ensemble_retriever import create_ensemble_retriever
@@ -27,6 +28,8 @@ async def generate_response(question: str, session_id: str) -> Dict[str, Any]:
     answer = result["result"]
     source_docs = result["source_documents"]
     
+    pprint(source_docs)
+
     return {
         "answer": answer,
         "source_docs": source_docs

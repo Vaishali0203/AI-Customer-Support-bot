@@ -41,6 +41,7 @@ class MongoDBRetriever(BaseRetriever):
                 documents.append(doc)
             
             return documents
+
         except Exception as e:
             print(f"MongoDB Retriever Error: {e}")
             return []

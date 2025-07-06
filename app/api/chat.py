@@ -23,6 +23,7 @@ async def is_relevant_source(question: str, doc_content: str) -> bool:
 
         response = relevance_llm.invoke(relevance_prompt_str).content.strip().upper()
         return response == "YES"
+
     except Exception as e:
         print(f"Relevance check error: {e}")
         # Default to including the reference if check fails
@@ -34,27 +35,30 @@ async def format_references(source_docs: List[Any], question: str) -> List[Refer
     seen_sources = set()
     
     for doc in source_docs:
-        # Only return top 3 references
-        if len(references) >= 3:
+        # Only return top 2 references
+        if len(references) >= 2:
             break
 
         metadata = doc.metadata
         source_type = metadata.get("source", "unknown")
         
-        # Skip chat history sources (Chroma docs have UUID in source field)
+        # Skip chat history sources. We only want to show documentation sources
         if source_type == "chat_history":
             continue
 
         # For Chroma/vector DB documents - source is always a UUID
         source_uuid = metadata.get("source", "Documentation")
 
-        # Only add if not already seen
+        # Only add if not already seen (UUID already found to be relevant)
         if source_uuid in seen_sources:
             continue
 
         # Check if this source is relevant to the question
         if not await is_relevant_source(question, doc.page_content):
             continue
+
+        # UUID is relevant - add to references and mark as seen
+        seen_sources.add(source_uuid)
 
         # Query articles service to get title and URL
         try:
@@ -70,9 +74,9 @@ async def format_references(source_docs: List[Any], question: str) -> List[Refer
                     title="Documentation",
                     url=source_uuid
                 ))
+
         except Exception as e:
             print(f"Error fetching article's title and url {source_uuid}: {e}")
-        seen_sources.add(source_uuid)
 
     return references
 
