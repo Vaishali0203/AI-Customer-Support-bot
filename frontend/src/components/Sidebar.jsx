@@ -22,7 +22,9 @@ const Sidebar = ({
   const deleteAllChats = async () => {
     if (Object.keys(chats).length === 0) return;
     
-    if (window.confirm('Are you sure you want to delete all chats? This action cannot be undone.')) {
+    const chatCount = Object.keys(chats).length;
+    
+    if (window.confirm(`Do you want to delete all ${chatCount} chat${chatCount === 1 ? '' : 's'}?\n\nThis action cannot be undone.`)) {
       // Get all unique session IDs
       const sessionIds = [...new Set(Object.values(chats).map(chat => chat.sessionId))];
       
