@@ -78,15 +78,15 @@ async def format_references(source_docs: List[Any], question: str) -> List[Refer
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    response = await generate_response(request.question)
+    response = await generate_response(request.question, request.session_id)
     answer = response["answer"]
     source_docs = response["source_docs"]
 
     # Format references with relevance checking
     references = await format_references(source_docs, request.question)
 
-    # Store chat in MongoDB
-    await mongodb.store_chat(request.question, answer)
+    # Store chat in MongoDB with session ID
+    await mongodb.store_chat(request.question, answer, request.session_id)
 
     return ChatResponse(
         answer=answer,
@@ -94,15 +94,25 @@ async def chat(request: ChatRequest):
     )
 
 @router.get("/chat/history")
-async def get_chat_history(limit: int = 10):
-    history = await mongodb.get_chat_history(limit)
+async def get_chat_history(session_id: str, limit: int = 10):
+    history = await mongodb.get_chat_history(session_id, limit)
     return {
         "history": [
             {
                 "question": doc["question"], 
                 "answer": doc["answer"], 
+                "session_id": doc["session_id"],
                 "timestamp": doc["timestamp"]
             } 
             for doc in history
         ]
+    }
+
+@router.delete("/chat/session/{session_id}")
+async def delete_session_chats(session_id: str):
+    deleted_count = await mongodb.delete_chats_by_session(session_id)
+    return {
+        "message": f"Deleted {deleted_count} chats for session {session_id}",
+        "deleted_count": deleted_count,
+        "session_id": session_id
     } 

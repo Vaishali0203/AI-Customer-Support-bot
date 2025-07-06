@@ -6,21 +6,22 @@ from langchain_core.retrievers import BaseRetriever
 from services.mongodb import mongodb
 
 class MongoDBRetriever(BaseRetriever):
-    """Simple MongoDB retriever that returns the last 5 chats for context"""
+    """MongoDB retriever that returns the last 5 chats for context from a specific session"""
     
     mongodb_instance: Any
     limit: int
+    session_id: str
     
     @classmethod
-    def create(cls, mongodb_instance, limit: int = 5):
+    def create(cls, mongodb_instance, session_id: str, limit: int = 5):
         """Factory method to create MongoDBRetriever"""
-        return cls(mongodb_instance=mongodb_instance, limit=limit)
+        return cls(mongodb_instance=mongodb_instance, session_id=session_id, limit=limit)
 
     def _get_relevant_documents(self, query: str) -> List[Document]:
-        """Simply return the last N chats for conversation context"""
+        """Return the last N chats for conversation context from specific session"""
         try:
-            # Use the sync method from MongoDB instance
-            results = self.mongodb_instance.get_chat_history_sync(self.limit)
+            # Use the sync method from MongoDB instance with session_id
+            results = self.mongodb_instance.get_chat_history_sync(self.session_id, self.limit)
             
             documents = []
             for result in results:
@@ -46,8 +47,4 @@ class MongoDBRetriever(BaseRetriever):
 
     async def _aget_relevant_documents(self, query: str) -> List[Document]:
         """Async version - delegates to sync version"""
-        return self._get_relevant_documents(query)
-
-
-# Create retriever using existing MongoDB instance
-mongodb_retriever = MongoDBRetriever.create(mongodb) 
+        return self._get_relevant_documents(query) 

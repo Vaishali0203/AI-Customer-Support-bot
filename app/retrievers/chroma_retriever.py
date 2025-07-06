@@ -24,21 +24,23 @@ vectordb = Chroma(
     embedding_function=OpenAIEmbeddings()
 )
 
-class ContextAwareChromaRetriever(BaseRetriever):
+class ChromaRetriever(BaseRetriever):
     """Context-aware Chroma retriever that enhances queries with conversation 
-    history"""
+    history from a specific session"""
     
     vectorstore: Any
     mongodb_instance: Any
     llm: Any
     k: int
+    session_id: str
     
     @classmethod
-    def create(cls, vectorstore, mongodb_instance, k: int = 4):
+    def create(cls, vectorstore, mongodb_instance, session_id: str, k: int = 4):
         """Factory method to create ContextAwareChromaRetriever"""
         return cls(
             vectorstore=vectorstore,
             mongodb_instance=mongodb_instance,
+            session_id=session_id,
             llm=ChatOpenAI(temperature=0.1),
             k=k
         )
@@ -46,8 +48,8 @@ class ContextAwareChromaRetriever(BaseRetriever):
     def _enhance_query_with_context(self, query: str) -> str:
         """Enhance the query with conversation context"""
         try:
-            # Get recent chat history
-            recent_chats = self.mongodb_instance.get_chat_history_sync(3)
+            # Get recent chat history for this session
+            recent_chats = self.mongodb_instance.get_chat_history_sync(self.session_id, 3)
             
             if not recent_chats:
                 return query
@@ -106,5 +108,6 @@ class ContextAwareChromaRetriever(BaseRetriever):
         """Async version - delegates to sync version"""
         return self._get_relevant_documents(query)
 
-# Create context-aware retriever
-chroma_retriever = ContextAwareChromaRetriever.create(vectordb, mongodb) 
+def create_chroma_retriever(session_id: str):
+    """Factory function to create session-aware ChromaDB retriever"""
+    return ChromaRetriever.create(vectordb, mongodb, session_id) 

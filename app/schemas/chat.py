@@ -3,6 +3,7 @@ from typing import List
 
 class ChatRequest(BaseModel):
     question: str
+    session_id: str
 
 class Reference(BaseModel):
     title: str

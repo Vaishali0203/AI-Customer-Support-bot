@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timezone
+from typing import List
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
@@ -14,22 +15,26 @@ class MongoDB:
         self.chats = async_client.chatbot.chats  # Async collection for API operations
         self.sync_chats = sync_client.chatbot.chats  # Sync collection for retriever operations
 
-    async def store_chat(self, question: str, answer: str):
+    async def store_chat(self, question: str, answer: str, session_id: str):
         chat_document = {
             "question": question,
             "answer": answer,
+            "session_id": session_id,
             "timestamp": datetime.now(timezone.utc)
         }
         await self.chats.insert_one(chat_document)
 
-    async def get_chat_history(self, limit: int = 10):
-        cursor = self.chats.find().sort("timestamp", -1).limit(limit)
+    async def get_chat_history(self, session_id: str, limit: int = 10):
+        query = {"session_id": session_id}
+        cursor = self.chats.find(query).sort("timestamp", -1).limit(limit)
         return await cursor.to_list(length=limit)
 
-    def get_chat_history_sync(self, limit: int = 10):
+    def get_chat_history_sync(self, session_id: str, limit: int = 10):
         """Synchronous version of get_chat_history for retriever operations"""
         try:
+            query = {"session_id": session_id}
             pipeline = [
+                {"$match": query},
                 {"$sort": {"timestamp": -1}},
                 {"$limit": limit}
             ]
@@ -39,5 +44,10 @@ class MongoDB:
         except Exception as e:
             print(f"MongoDB Sync Error: {e}")
             return []
+
+    async def delete_chats_by_session(self, session_id: str):
+        """Delete all chats for a specific session"""
+        result = await self.chats.delete_many({"session_id": session_id})
+        return result.deleted_count
 
 mongodb = MongoDB()
