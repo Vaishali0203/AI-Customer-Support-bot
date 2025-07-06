@@ -1,22 +1,255 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import axios from "axios";
+import Sidebar from "./Sidebar";
+import ChatInput from "./ChatInput";
 import "./App.css";
 
 function App() {
   const [message, setMessage] = useState("");
-  const [chat, setChat] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [expandedReferences, setExpandedReferences] = useState(new Set());
+  const [chats, setChats] = useState({});
+  const [activeChat, setActiveChat] = useState(null);
+
   const chatEndRef = useRef(null);
+
+  // Generate a unique session ID (UUID)
+  const generateSessionId = () => {
+    return crypto.randomUUID();
+  };
+
+  // Create a new chat
+  const createNewChat = useCallback(() => {
+    const newChatId = generateSessionId();
+    const newChat = {
+      id: newChatId,
+      sessionId: newChatId,
+      messages: [],
+      lastActivity: new Date().toISOString(),
+      createdAt: new Date().toISOString()
+    };
+    
+    setChats(prev => ({
+      ...prev,
+      [newChatId]: newChat
+    }));
+    
+    setActiveChat(newChatId);
+    setExpandedReferences(new Set());
+    return { chatId: newChatId, chat: newChat };
+  }, []);
+
+  // Load chat history when switching chats
+  const loadChatHistory = useCallback(async (chatId) => {
+    if (!chats[chatId]) return;
+    
+    const chat = chats[chatId];
+    // Only fetch if messages are empty (avoid refetching)
+    if (chat.messages.length === 0) {
+      try {
+        const response = await axios.get(`http://localhost:8000/chat/history?session_id=${chat.sessionId}&limit=10`);
+        const historyData = response.data.history || [];
+        
+        if (historyData.length > 0) {
+          // Convert history format to message format
+          const messages = [];
+          historyData.forEach(item => {
+            // Add user message
+            messages.push({
+              sender: "user",
+              text: item.question,
+              timestamp: new Date(item.timestamp)
+            });
+            // Add bot response
+            messages.push({
+              sender: "bot",
+              text: item.answer,
+              timestamp: new Date(item.timestamp),
+              references: []
+            });
+          });
+
+          setChats(prev => ({
+            ...prev,
+            [chatId]: {
+              ...prev[chatId],
+              messages: messages,
+              lastActivity: new Date().toISOString()
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch chat history:', error);
+      }
+    }
+  }, [chats]);
+
+  // Initialize chats from sessionStorage
+  useEffect(() => {
+    const storedChats = sessionStorage.getItem('chats');
+    const storedActiveChat = sessionStorage.getItem('activeChat');
+    
+    if (storedChats) {
+      const parsedChats = JSON.parse(storedChats);
+      setChats(parsedChats);
+      
+      if (storedActiveChat && parsedChats[storedActiveChat]) {
+        setActiveChat(storedActiveChat);
+      } else {
+        // Set first chat as active if stored active chat doesn't exist
+        const firstChatId = Object.keys(parsedChats)[0];
+        if (firstChatId) {
+          setActiveChat(firstChatId);
+        }
+      }
+    }
+    // Don't create chat automatically - wait for first message
+  }, []);
+
+  // Load chat history when activeChat changes
+  useEffect(() => {
+    if (activeChat && chats[activeChat] && chats[activeChat].messages.length === 0) {
+      loadChatHistory(activeChat);
+    }
+  }, [activeChat, chats, loadChatHistory]);
+
+  // Save chats to sessionStorage whenever chats change
+  useEffect(() => {
+    if (Object.keys(chats).length > 0) {
+      sessionStorage.setItem('chats', JSON.stringify(chats));
+    }
+  }, [chats]);
+
+  // Save active chat to sessionStorage whenever it changes
+  useEffect(() => {
+    if (activeChat) {
+      sessionStorage.setItem('activeChat', activeChat);
+    }
+  }, [activeChat]);
+
+  // Get current chat
+  const getCurrentChat = () => {
+    return activeChat ? chats[activeChat] : null;
+  };
+
+  // Switch to a different chat
+  const switchChat = (chatId) => {
+    if (chats[chatId]) {
+      setActiveChat(chatId);
+      setExpandedReferences(new Set());
+    }
+  };
+
+  // Delete a chat by chat ID
+  const deleteChat = async (chatId) => {
+    const chat = chats[chatId];
+    if (!chat) return;
+
+    try {
+      // Call backend API to delete chat by session ID
+      await axios.delete(`http://localhost:8000/chat/session/${chat.sessionId}`);
+      console.log(`Successfully deleted chat session ${chat.sessionId} from backend`);
+    } catch (error) {
+      console.error(`Failed to delete chat session ${chat.sessionId} from backend:`, error);
+      // Continue with local deletion even if backend call fails
+    }
+
+    // Remove from local state
+    setChats(prev => {
+      const newChats = { ...prev };
+      delete newChats[chatId];
+      return newChats;
+    });
+    
+    if (activeChat === chatId) {
+      // Switch to another chat if deleting the active one
+      const remainingChats = Object.keys(chats).filter(id => id !== chatId);
+      if (remainingChats.length > 0) {
+        setActiveChat(remainingChats[0]);
+      } else {
+        // No chats left, clear active chat
+        setActiveChat(null);
+      }
+    }
+  };
+
+  // Delete a chat by session ID
+  const deleteChatBySessionId = async (sessionId) => {
+    try {
+      // Call backend API to delete chat by session ID
+      await axios.delete(`http://localhost:8000/chat/session/${sessionId}`);
+      console.log(`Successfully deleted chat session ${sessionId} from backend`);
+    } catch (error) {
+      console.error(`Failed to delete chat session ${sessionId} from backend:`, error);
+      // Continue with local deletion even if backend call fails
+    }
+
+    // Find and remove from local state
+    const chatEntry = Object.entries(chats).find(([, chat]) => chat.sessionId === sessionId);
+    if (chatEntry) {
+      const [chatId] = chatEntry;
+      setChats(prev => {
+        const newChats = { ...prev };
+        delete newChats[chatId];
+        return newChats;
+      });
+      
+      if (activeChat === chatId) {
+        // Switch to another chat if deleting the active one
+        const remainingChats = Object.keys(chats).filter(id => id !== chatId);
+        if (remainingChats.length > 0) {
+          setActiveChat(remainingChats[0]);
+        } else {
+          // No chats left, clear active chat
+          setActiveChat(null);
+        }
+      }
+    }
+  };
+
+  // Delete all chats
+  const deleteAllChats = async () => {
+    // Get all unique session IDs
+    const sessionIds = [...new Set(Object.values(chats).map(chat => chat.sessionId))];
+    
+    // Delete each session from backend
+    const deletePromises = sessionIds.map(async (sessionId) => {
+      try {
+        await axios.delete(`http://localhost:8000/chat/session/${sessionId}`);
+        console.log(`Successfully deleted chat session ${sessionId} from backend`);
+      } catch (error) {
+        console.error(`Failed to delete chat session ${sessionId} from backend:`, error);
+      }
+    });
+
+    // Wait for all deletions to complete (or fail)
+    await Promise.allSettled(deletePromises);
+
+    // Clear local state
+    setChats({});
+    setActiveChat(null);
+    setExpandedReferences(new Set());
+  };
+
+
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Handle input height change - scroll to bottom to keep messages visible
+  const handleInputHeightChange = useCallback(() => {
+    setTimeout(() => {
+      scrollToBottom();
+    }, 0);
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
-  }, [chat]);
+  }, [activeChat, chats]);
+
+
 
   // Backend health check function
   const checkBackendHealth = async () => {
@@ -45,43 +278,78 @@ function App() {
   const sendMessage = async () => {
     if (!message.trim() || isLoading) return;
 
+    // Create chat if none exists
+    let currentChat = getCurrentChat();
+    let currentChatId = activeChat;
+    if (!currentChat) {
+      const { chatId, chat } = createNewChat();
+      currentChat = chat;
+      currentChatId = chatId;
+    }
+
     const userMessage = message.trim();
     setMessage("");
     setIsLoading(true);
 
     // Show user's message
-    setChat((prev) => [...prev, { sender: "user", text: userMessage, timestamp: new Date() }]);
+    const userMessageObj = { sender: "user", text: userMessage, timestamp: new Date() };
+    setChats(prev => ({
+      ...prev,
+      [currentChatId]: {
+        ...prev[currentChatId],
+        messages: [...prev[currentChatId].messages, userMessageObj],
+        lastActivity: new Date().toISOString()
+      }
+    }));
 
     try {
       const res = await axios.post("http://localhost:8000/chat", {
         question: userMessage,
+        session_id: currentChat.sessionId,
       });
 
-      setChat((prev) => [...prev, { 
+      const botMessageObj = { 
         sender: "bot", 
         text: res.data.answer, 
         references: res.data.references || [], 
         timestamp: new Date() 
-      }]);
+      };
+
+      setChats(prev => ({
+        ...prev,
+        [currentChatId]: {
+          ...prev[currentChatId],
+          messages: [...prev[currentChatId].messages, botMessageObj],
+          lastActivity: new Date().toISOString()
+        }
+      }));
       setIsBackendOnline(true); // Mark backend as online if message sent successfully
     } catch (err) {
       setIsBackendOnline(false); // Mark backend as offline on error
-      setChat((prev) => [
+      const errorMessageObj = { 
+        sender: "bot", 
+        text: "Sorry, I'm having trouble connecting right now. Please try again in a moment.", 
+        timestamp: new Date(),
+        isError: true
+      };
+      
+      setChats(prev => ({
         ...prev,
-        { 
-          sender: "bot", 
-          text: "Sorry, I'm having trouble connecting right now. Please try again in a moment.", 
-          timestamp: new Date(),
-          isError: true
-        },
-      ]);
+        [currentChatId]: {
+          ...prev[currentChatId],
+          messages: [...prev[currentChatId].messages, errorMessageObj],
+          lastActivity: new Date().toISOString()
+        }
+      }));
     } finally {
       setIsLoading(false);
     }
   };
 
   const formatTime = (timestamp) => {
-    return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!timestamp) return '';
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
   const toggleReferences = (messageIndex) => {
@@ -96,8 +364,24 @@ function App() {
     });
   };
 
+
+
+  const currentChat = getCurrentChat();
+  const currentMessages = currentChat ? currentChat.messages : [];
+  const hasChats = Object.keys(chats).length > 0;
+
   return (
     <div className="app">
+      <Sidebar 
+        chats={chats}
+        activeChat={activeChat}
+        onCreateNewChat={() => createNewChat()}
+        onSwitchChat={switchChat}
+        onDeleteChat={deleteChat}
+        onDeleteChatBySessionId={deleteChatBySessionId}
+        onDeleteAllChats={deleteAllChats}
+      />
+      
       <div className="chat-container">
         {/* Header */}
         <div className="chat-header">
@@ -118,7 +402,7 @@ function App() {
 
         {/* Chat Messages */}
         <div className="chat-messages">
-          {chat.length === 0 && (
+          {(!hasChats || currentMessages.length === 0) && (
             <div className="welcome-message">
               <div className="welcome-icon">👋</div>
               <h2>Welcome to Ardoq Support!</h2>
@@ -126,7 +410,7 @@ function App() {
             </div>
           )}
           
-          {chat.map((msg, i) => (
+          {currentMessages.map((msg, i) => (
             <div key={i} className={`message ${msg.sender}`}>
               <div className="message-content">
                 <div className="message-bubble">
@@ -191,32 +475,19 @@ function App() {
         </div>
 
         {/* Input Area */}
-        <div className="chat-input">
-          <div className="input-container">
-            <input
-              type="text"
-              placeholder={isBackendOnline ? "Type your message here..." : "Agent is offline..."}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              disabled={isLoading || !isBackendOnline}
-              className="message-input"
-            />
-            <button 
-              onClick={sendMessage} 
-              disabled={!message.trim() || isLoading || !isBackendOnline}
-              className="send-button"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M22 2L11 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+        <ChatInput
+          message={message}
+          setMessage={setMessage}
+          onSendMessage={sendMessage}
+          isLoading={isLoading}
+          isBackendOnline={isBackendOnline}
+          onHeightChange={handleInputHeightChange}
+          onCreateNewChat={createNewChat}
+        />
       </div>
     </div>
   );
 }
 
 export default App;
+
