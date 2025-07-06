@@ -138,7 +138,7 @@ const ChatInput = ({
             className="message-input"
             rows={1}
             style={{
-              minHeight: '44px',
+              minHeight: '24px',
               maxHeight: '120px',
               height: 'auto',
               resize: 'none',
