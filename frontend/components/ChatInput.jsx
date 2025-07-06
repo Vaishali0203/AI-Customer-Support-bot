@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import './ChatInput.css';
+import "../css/ChatInput.css";
 
 const ChatInput = ({ 
   message, 

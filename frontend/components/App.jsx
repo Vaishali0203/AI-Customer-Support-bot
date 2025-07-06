@@ -3,7 +3,7 @@ import axios from "axios";
 import Sidebar from "./Sidebar";
 import ChatInput from "./ChatInput";
 import Message from "./Message";
-import "./App.css";
+import "../css/App.css";
 
 function App() {
   const [message, setMessage] = useState("");
