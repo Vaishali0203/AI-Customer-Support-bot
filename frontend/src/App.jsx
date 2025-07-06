@@ -21,7 +21,7 @@ function App() {
   // Backend health check function
   const checkBackendHealth = async () => {
     try {
-      const response = await axios.get("http://localhost:8000/", {
+      const response = await axios.get("http://localhost:8000/health", {
         timeout: 5000 // 5 second timeout
       });
       setIsBackendOnline(response.status === 200);
