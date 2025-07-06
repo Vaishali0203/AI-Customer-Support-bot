@@ -12,4 +12,4 @@ async def health():
 router.include_router(chat_router)
 
 # Include articles routes
-router.include_router(articles_router) 
+router.include_router(articles_router)
