@@ -6,6 +6,7 @@ import Message from "./Message";
 import Header from "./Header";
 import WelcomeMessage from "./WelcomeMessage";
 import useDarkMode from "../hooks/useDarkMode";
+import useResponsiveSidebar from "../hooks/useResponsiveSidebar";
 import { generateSessionId, saveSessionId } from "../utils/sessionUtils";
 import { formatTime } from "../utils/chatUtils";
 import "../css/App.css";
@@ -14,71 +15,12 @@ function App() {
   const [expandedReferences, setExpandedReferences] = useState(new Set());
   const [chats, setChats] = useState({});
   const [activeChat, setActiveChat] = useState(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [userManuallyCollapsed, setUserManuallyCollapsed] = useState(false);
 
   // Custom hooks
   const { darkMode, toggleDarkMode } = useDarkMode();
+  const { sidebarCollapsed, toggleSidebar } = useResponsiveSidebar();
 
   const chatEndRef = useRef(null);
-
-  // Toggle sidebar visibility
-  const toggleSidebar = () => {
-    setSidebarCollapsed(prev => {
-      const newCollapsed = !prev;
-      setUserManuallyCollapsed(newCollapsed);
-      return newCollapsed;
-    });
-  };
-
-  // Check if screen is small based on aspect ratio and dimensions (mobile/tablet)
-  const isSmallScreen = () => {
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    const smallerDimension = Math.min(window.innerWidth, window.innerHeight);
-    
-    // Portrait or square-ish screens (mobile portrait, tablet portrait)
-    if (aspectRatio < 1.0) return true;
-    
-    // Landscape but with small height (mobile landscape, small tablets)
-    if (smallerDimension < 600) return true;
-    
-    // Wide landscape screens with sufficient height (desktop)
-    return false;
-  };
-
-  // Handle responsive sidebar behavior
-  useEffect(() => {
-    const handleResize = () => {
-      const smallScreen = isSmallScreen();
-      
-      if (smallScreen && !userManuallyCollapsed) {
-        // Auto-collapse on small screens unless user manually collapsed
-        setSidebarCollapsed(true);
-      } else if (!smallScreen && !userManuallyCollapsed) {
-        // Auto-expand on large screens unless user manually collapsed
-        setSidebarCollapsed(false);
-      }
-      // If user manually collapsed, respect their choice regardless of screen size
-    };
-
-    // Set initial state based on screen size
-    handleResize();
-
-    // Add resize listener
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [userManuallyCollapsed]);
-
-  // Reset user preference when they manually expand on small screen
-  useEffect(() => {
-    if (!sidebarCollapsed && isSmallScreen()) {
-      setUserManuallyCollapsed(false);
-    }
-  }, [sidebarCollapsed]);
 
   // Create a new chat
   const createNewChat = useCallback(() => {
@@ -149,8 +91,6 @@ function App() {
     }
   }, [chats]);
 
-
-
   // Get current chat
   const getCurrentChat = () => {
     return activeChat ? chats[activeChat] : null;
@@ -163,8 +103,6 @@ function App() {
       setExpandedReferences(new Set());
     }
   };
-
-
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -180,12 +118,6 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [activeChat, chats]);
-
-
-
-
-
-
 
   const toggleReferences = (messageIndex) => {
     setExpandedReferences(prev => {
@@ -264,4 +196,3 @@ function App() {
 }
 
 export default App;
-
