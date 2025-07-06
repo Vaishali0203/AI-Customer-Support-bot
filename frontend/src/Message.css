@@ -29,6 +29,7 @@
 
 .message.bot .message-content {
   flex-direction: row-reverse;
+  align-self: flex-start;
 }
 
 .message-bubble {
