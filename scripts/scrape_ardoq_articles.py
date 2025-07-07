@@ -1,17 +1,21 @@
-import requests
-import re
 import os
 import json
-from bs4 import BeautifulSoup
+import time
 from urllib.parse import urlparse, urljoin
 from concurrent.futures import ThreadPoolExecutor
-import time
 from dotenv import load_dotenv
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException, WebDriverException
+from bs4 import BeautifulSoup
+import requests
 
 BASE_URL = "https://help.ardoq.com"
 START_URL = f"{BASE_URL}/en/"
 ARTICLES_API_URL = "http://backend:8000/articles"
-headers = {"User-Agent": "Mozilla/5.0"}
 
 load_dotenv()
 top_dir = os.environ.get("TOP_DIR")
@@ -24,10 +28,39 @@ queue = {START_URL}
 os.makedirs(articles_dir_path, exist_ok=True)
 os.makedirs(temp_dir_path, exist_ok=True)
 
+
+def create_webdriver():
+    """Creates a headless Chromium WebDriver instance."""
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    chrome_options.add_argument("--disable-web-security")
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    
+    # Use system chromium binary and driver
+    chrome_options.binary_location = "/usr/bin/chromium"
+    
+    try:
+        driver = webdriver.Chrome(
+            options=chrome_options,
+            service=webdriver.ChromeService(executable_path="/usr/bin/chromedriver")
+        )
+        driver.implicitly_wait(10)
+        return driver
+    except WebDriverException as e:
+        print(f"⚠️ Error creating WebDriver: {e}")
+        return None
+
+
 def normalize_url(url):
     """Remove URL fragment to avoid duplicate processing of same page."""
     parsed = urlparse(url)
     return parsed._replace(fragment='').geturl()
+
 
 def post_to_articles_service(title, url, content):
     """Posts article data to the MongoDB service and returns the UUID."""
@@ -55,19 +88,41 @@ def post_to_articles_service(title, url, content):
         print(f"⚠️ Error processing articles service response: {e}")
         return None
 
+
 def download_and_process_page(url):
-    """Downloads a page, saves its text content, posts to articles service, 
-    and extracts new links from <a> tags."""
+    """Downloads a page using Selenium, saves its text content, posts to 
+    articles service, and extracts new links from <a> tags."""
     normalized_url = normalize_url(url)
     if normalized_url in visited:
         return set()
 
     visited.add(normalized_url)
     print(f"🔍 Processing URL: {url}")
+    
+    driver = create_webdriver()
+    if not driver:
+        print(f"⚠️ Failed to create WebDriver for {url}")
+        return set()
+    
     try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        # Load the page
+        driver.get(url)
+        
+        # Wait for page to load (adjust timeout as needed)
+        try:
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+        except TimeoutException:
+            print(f"⚠️ Timeout waiting for page to load: {url}")
+            return set()
+        
+        # Give JavaScript a moment to render content
+        time.sleep(2)
+        
+        # Get page source after JavaScript execution
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, "html.parser")
 
         # Extract title from page
         title_tag = soup.find("title")
@@ -111,28 +166,44 @@ def download_and_process_page(url):
                 normalized_link not in queue):
                 new_links.add(link)
                 print(f"🔗 Found new link: {link}")
+        
         return new_links
 
-    except requests.exceptions.RequestException as e:
-        print(f"⚠️ Error fetching {url}: {e}")
+    except WebDriverException as e:
+        print(f"⚠️ WebDriver error processing {url}: {e}")
         return set()
     except Exception as e:
         print(f"⚠️ Error processing {url}: {e}")
         return set()
+    finally:
+        # Always clean up the driver
+        if driver:
+            driver.quit()
+
 
 def main():
-    print("🚀 Starting to collect and download page content...")
-
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        while queue:
-            current_url = queue.pop()
-            future = executor.submit(download_and_process_page, current_url)
-            newly_found_links = future.result()
-            queue.update(newly_found_links)
-            time.sleep(0.1)  # Be a bit gentler on the server
+    print("🚀 Starting to collect and download page content using Selenium...")
+    
+    # Process pages sequentially to avoid overwhelming the server with 
+    # multiple browser instances
+    processed_count = 0
+    while queue:
+        current_url = queue.pop()
+        newly_found_links = download_and_process_page(current_url)
+        queue.update(newly_found_links)
+        processed_count += 1
+        
+        # Be gentle on the server and system resources
+        time.sleep(1)
+        
+        # Log progress
+        if processed_count % 10 == 0:
+            print(f"📊 Processed {processed_count} pages, "
+                  f"{len(queue)} remaining in queue")
 
     print("✅ Finished! Attempted to download content from all "
-          "discovered pages.")
+          "discovered pages using Selenium.")
+
 
 if __name__ == "__main__":
     main()

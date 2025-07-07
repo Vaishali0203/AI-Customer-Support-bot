@@ -4,8 +4,18 @@ WORKDIR /app
 
 COPY . /app
 
-RUN pip install --no-cache-dir -r requirements.txt && \
-    apt-get update && apt-get install -y cron
+# Install Chromium and ChromeDriver for Selenium
+RUN apt-get update && apt-get install -y \
+    cron \
+    wget \
+    unzip \
+    curl \
+    chromium \
+    chromium-driver \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY crontab.txt /etc/cron.d/scrape-cron
 RUN chmod 0644 /etc/cron.d/scrape-cron
