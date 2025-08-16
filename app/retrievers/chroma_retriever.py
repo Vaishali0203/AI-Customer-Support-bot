@@ -1,44 +1,27 @@
 import os
 from typing import List, Any
 
-from dotenv import load_dotenv
-from langchain_chroma import Chroma
-from langchain_community.embeddings import OpenAIEmbeddings
 from langchain.schema import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_openai import ChatOpenAI
 
 from services.mongodb import mongodb
+from services.chroma import chroma_service
 from prompts.query_enhancement_prompt import query_enhancement_prompt
-
-# Load environment variables
-load_dotenv()
-
-# Setup Chroma vector database
-top_dir = os.environ.get("TOP_DIR")
-chroma_dir_path = os.path.join(top_dir, os.environ.get("CHROMA_DIR"))
-
-# Create Chroma vectorstore
-vectordb = Chroma(
-    persist_directory=chroma_dir_path, 
-    embedding_function=OpenAIEmbeddings()
-)
 
 class ChromaRetriever(BaseRetriever):
     """Context-aware Chroma retriever that enhances queries with conversation 
     history from a specific session"""
     
-    vectorstore: Any
     mongodb_instance: Any
     llm: Any
     k: int
     session_id: str
     
     @classmethod
-    def create(cls, vectorstore, mongodb_instance, session_id: str, k: int = 4):
+    def create(cls, mongodb_instance, session_id: str, k: int = 4):
         """Factory method to create ContextAwareChromaRetriever"""
         return cls(
-            vectorstore=vectorstore,
             mongodb_instance=mongodb_instance,
             session_id=session_id,
             llm=ChatOpenAI(temperature=0.1),
@@ -69,12 +52,12 @@ class ChromaRetriever(BaseRetriever):
             )
             
             enhanced_query = self.llm.invoke(enhancement_prompt_str).content.strip()
-            
+
             # Fallback to original query if enhancement fails
-            if not enhanced_query or len(enhanced_query) < 5:
+            if not enhanced_query:
                 return query
-                
-            return enhanced_query
+
+            return enhanced_query 
             
         except Exception as e:
             print(f"Query enhancement error: {e}")
@@ -86,11 +69,8 @@ class ChromaRetriever(BaseRetriever):
             # Enhance query with conversation context
             enhanced_query = self._enhance_query_with_context(query)
             
-            # Search with enhanced query
-            docs = self.vectorstore.similarity_search(
-                enhanced_query, 
-                k=self.k
-            )
+            # Use chroma service for similarity search (with built-in retry logic)
+            docs = chroma_service.similarity_search(enhanced_query, k=self.k)
             
             # Add query enhancement info to metadata
             for doc in docs:
@@ -101,8 +81,7 @@ class ChromaRetriever(BaseRetriever):
             
         except Exception as e:
             print(f"Context-aware Chroma retriever error: {e}")
-            # Fallback to basic search
-            return self.vectorstore.similarity_search(query, k=self.k)
+            return []  # Return empty list if everything fails
 
     async def _aget_relevant_documents(self, query: str) -> List[Document]:
         """Async version - delegates to sync version"""
@@ -110,4 +89,4 @@ class ChromaRetriever(BaseRetriever):
 
 def create_chroma_retriever(session_id: str):
     """Factory function to create session-aware ChromaDB retriever"""
-    return ChromaRetriever.create(vectordb, mongodb, session_id) 
+    return ChromaRetriever.create(mongodb, session_id)
