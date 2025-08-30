@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Customer Support Bot: Technical Implementation Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            padding: 20px; 
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 15px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            overflow: hidden; 
+        }
+        .content { 
+            padding: 40px; 
+        }
+        h1 { 
+            color: #2c3e50; 
+            font-size: 2em; 
+            margin: 30px 0 20px 0; 
+            border-bottom: 3px solid #3498db; 
+            padding-bottom: 10px; 
+        }
+        h2 { 
+            color: #34495e; 
+            font-size: 1.6em; 
+            margin: 25px 0 15px 0; 
+            padding-left: 20px; 
+            border-left: 4px solid #3498db; 
+        }
+        h3 { 
+            color: #2c3e50; 
+            font-size: 1.3em; 
+            margin: 20px 0 10px 0; 
+        }
+        h4 { 
+            color: #34495e; 
+            font-size: 1.1em; 
+            margin: 15px 0 8px 0; 
+        }
+        p { 
+            margin: 15px 0; 
+            text-align: justify; 
+        }
+        ul, ol { 
+            margin: 15px 0; 
+            padding-left: 30px; 
+        }
+        li { 
+            margin: 8px 0; 
+        }
+        pre { 
+            background: #2d3748; 
+            color: #e2e8f0; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 20px 0; 
+            overflow-x: auto; 
+            font-family: "Courier New", monospace; 
+            font-size: 0.85em; 
+            line-height: 1.4; 
+            border-left: 4px solid #4299e1; 
+        }
+        pre.mermaid { 
+            background: transparent !important; 
+            color: inherit !important; 
+            border: none !important; 
+            padding: 20px !important; 
+        }
+        .toc {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px; 
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        .toc h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border: none;
+            padding: 0;
+            font-size: 1.3em;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        .toc li {
+            margin: 8px 0;
+        }
+        .toc a {
+            color: #3498db; 
+            text-decoration: none; 
+            font-weight: 500;
+            display: block;
+            padding: 5px 0;
+            transition: color 0.2s ease;
+        }
+        .toc a:hover {
+            color: #2980b9;
+            text-decoration: underline; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        <ul>
+        <li><a href="#abstract">Abstract</a></li>
+        <li><a href="#introduction">Introduction</a></li>
+        <li><a href="#project-objectives">Project Objectives</a></li>
+        <li><a href="#literature-review">Literature Review and Theoretical Foundation</a></li>
+        <li><a href="#traditional-challenges">Traditional Customer Support Challenges</a></li>
+        <li><a href="#system-architecture">System Architecture</a></li>
+        <li><a href="#user-query-workflow">User Query Workflow</a></li>
+        <li><a href="#frontend-systems">Frontend Systems</a></li>
+        <li><a href="#backend-systems">Backend Systems</a></li>
+        <li><a href="#batch-processing">Batch Processing</a></li>
+</ul>
+    </div>
+
+<h1 id="abstract">Abstract</h1>
+
+<p>This project implements an AI-powered customer support bot that integrates Large Language Models (LLMs), Retrieval-Augmented Generation (RAG), and microservices architecture. The system uses FastAPI, React 19, LangChain, ChromaDB, and MongoDB to deliver context-aware responses to customer queries focused on Ardoq products and services.</p>
+
+<p>The implementation combines ensemble retrieval that balances semantic search with conversation context, automated knowledge base updates through web scraping, and query enhancement using conversation history. Domain enforcement mechanisms prevent off-topic responses and validate source document relevance.</p>
+
+<p>The system operates through containerized microservices, maintains session-based conversation management, and implements automated reference filtering to ensure response accuracy and source attribution.</p>
+
+<h1 id="introduction">Introduction</h1>
+
+<p>Traditional human-based customer support faces fundamental operational constraints that limit service quality and efficiency. Human representatives can only handle one conversation at a time, creating direct bottlenecks when multiple customers need assistance simultaneously. Adding more customers requires hiring proportionally more staff, making operational costs scale linearly with user growth.</p>
+
+<p>Response speed presents another critical limitation. Human representatives require time to think, research answers, and type responses. Even simple questions involve processing delays, while complex questions require additional research time, creating variable and often slow response times for customers. This variability directly impacts customer satisfaction and support efficiency.</p>
+
+<p>Availability restrictions compound these challenges. Human staff work within business hours and require breaks, vacations, and time off. Customers needing assistance outside working hours, on weekends, or during holidays cannot receive immediate support, creating service gaps that affect customer experience and potentially impact business outcomes.</p>
+
+<p>Knowledge inconsistency creates unpredictable service quality. Different representatives have varying levels of knowledge, experience, and communication skills. The same customer question may receive different quality answers depending on which representative responds, leading to inconsistent customer experiences and potential confusion when customers receive conflicting information.</p>
+
+<p>Large Language Models (LLMs) and transformer architectures provide opportunities to address these operational constraints. The AI Customer Support Bot for Ardoq addresses these challenges through implementation that combines:</p>
+
+<ul>
+<li><strong>Domain-Specific Intelligence</strong>: Ardoq-focused responses with safeguards against off-topic queries</li>
+<li><strong>Hybrid Retrieval Architecture</strong>: Ensemble retrieval combining semantic search with conversation context</li>
+<li><strong>Automated Knowledge Base Management</strong>: Weekly content ingestion from Ardoq documentation with embedding generation and vector database updates</li>
+<li><strong>Context-Aware Query Enhancement</strong>: Conversation history integration to improve retrieval relevance and response accuracy</li>
+<li><strong>Conversation Continuity</strong>: Session-aware interactions maintaining context across multi-turn conversations</li>
+<li><strong>Reference Grounding</strong>: Responses backed by verifiable sources to minimize hallucinations</li>
+</ul>
+
+<p>This document provides documentation of the system's architecture, implementation details, and operational considerations.</p>
+
+<h1 id="project-objectives">Project Objectives</h1>
+
+<ul>
+<li><strong>Develop AI Support Bot</strong>: Create a functional system capable of handling customer queries with operational reliability</li>
+<li><strong>Implement Hybrid Retrieval</strong>: Deploy ensemble retrieval system balancing semantic search accuracy with conversational context preservation</li>
+<li><strong>Implement Automated Knowledge Base Management</strong>: Establish weekly automated content ingestion from Ardoq documentation with embedding generation and vector database updates</li>
+<li><strong>Ensure Domain Specificity</strong>: Maintain focus on Ardoq products and services with safeguards against off-topic interactions</li>
+<li><strong>Maintain Conversation Context</strong>: Implement session-level memory management for coherent multi-turn dialogues</li>
+<li><strong>Provide Source Attribution</strong>: Include relevant references with automated relevance validation</li>
+<li><strong>Implement Multi-Session Interface Management</strong>: Develop interactive chat system with persistent session storage and real-time backend connectivity monitoring</li>
+</ul>
+
+
+
+<h1 id="literature-review">Literature Review and Theoretical Foundation</h1>
+
+<p>The foundation of this implementation builds upon established research in retrieval-augmented generation and semantic search technologies. Lewis et al. (2020) introduced the RAG framework in "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks," which combines parametric knowledge from pre-trained models with non-parametric knowledge from external databases. This foundational approach enables systems to ground responses in verifiable sources while maintaining natural language generation capabilities. The implementation extends this framework through ensemble retrieval that balances semantic similarity with conversational context, dynamic query enhancement using conversation history, and automated reference validation for response accuracy.</p>
+
+<p>Dense vector representations enable semantic similarity matching beyond traditional keyword-based approaches. Karpukhin et al. (2020) in "Dense Passage Retrieval for Open-Domain Question Answering" demonstrated that dense passage retrieval significantly outperforms sparse retrieval methods for question-answering tasks. The system utilizes OpenAI's text-embedding-ada-002 model to generate 1536-dimensional vectors for document representation, enabling efficient similarity search through approximate nearest neighbor algorithms and supporting automated embedding generation for newly ingested content.</p>
+
+<p>Automated knowledge base management addresses the challenge of maintaining current and accurate information repositories in enterprise environments. Research in information systems (Alavi & Leidner, 2001) emphasizes the importance of dynamic knowledge management processes in organizational contexts. The implementation incorporates automated content discovery and ingestion through web scraping technologies, scheduled embedding generation and vector database updates, and content lifecycle management with automated cleanup processes. This approach reduces manual maintenance overhead while ensuring knowledge base currency.</p>
+
+<p>Domain-specific conversational AI systems require specialized approaches to maintain accuracy and relevance. Studies in customer service automation (Følstad & Brandtzæg, 2017) highlight the importance of maintaining conversational boundaries and ensuring appropriate responses in customer-facing applications. The system implements strict domain enforcement to prevent off-topic responses, conversation-aware query enhancement to improve retrieval relevance, and multi-stage response validation to ensure source attribution and factual grounding. These mechanisms address common challenges in customer support automation including response consistency, accuracy verification, and appropriate escalation handling.</p>
+
+
+
+<h1 id="system-architecture">System Architecture</h1>
+
+<p>FastAPI and React provide the foundation for a microservices architecture that separates concerns across distinct service layers. FastAPI offers automatic OpenAPI documentation generation, async/await support for concurrent request handling, and type validation through Pydantic models with automatic JSON serialization. React 19 enables responsive user interfaces with component-based architecture, virtual DOM optimization, and state management through hooks and context providers.</p>
+
+<h2>Microservices Architecture</h2>
+
+<p>The system implements a layered microservices pattern where each service operates independently with dedicated responsibilities and communication interfaces. The React frontend runs on port 3000 with Create React App configuration, FastAPI backend operates on port 8000 with uvicorn ASGI server, MongoDB provides document storage on default port 27017, and ChromaDB operates as file-based vector storage without a separate container service. This separation enables independent scaling, version management, and maintenance of each component while facilitating horizontal scaling strategies.</p>
+
+<h2>Service Communication and Integration</h2>
+
+<p>Inter-service communication follows RESTful API patterns with JSON payloads and HTTP status codes for error handling. The frontend uses axios HTTP client with configurable timeouts, retry logic, and error interceptors for API communication. CORS middleware configuration uses wildcard origins (*) allowing all cross-origin requests, with credentials support and unrestricted HTTP methods. Health check endpoints provide service monitoring capabilities with Docker health check integration using curl commands at 30-second intervals.</p>
+
+<h2>Data Flow Architecture</h2>
+
+<p>Request flow follows a structured pathway: user interactions trigger React component state changes, axios sends HTTP requests to FastAPI endpoints, Pydantic models validate request data, business logic processes requests through service layers, database operations execute with error handling, and responses flow back through the same path with proper status codes. This unidirectional data flow ensures predictable state management and facilitates debugging and testing.</p>
+
+<pre class="mermaid">
+graph TB
+    subgraph "Client Layer"
+        UI[React Frontend<br/>Port 3000]
+    end
+    
+    subgraph "API Gateway Layer"
+        API[FastAPI Backend<br/>Port 8000]
+    end
+    
+    subgraph "Service Layer"
+        CHAT[Chat Service<br/>Response Generation]
+        ART[Articles Service<br/>Content Management]
+        RET[Retrieval Services<br/>Ensemble Retriever]
+    end
+    
+    subgraph "Data Layer"
+        CHROMA[(ChromaDB<br/>Vector Embeddings)]
+        MONGO[(MongoDB<br/>Conversations & Articles)]
+    end
+    
+    subgraph "External Services"
+        OPENAI[OpenAI API<br/>LLM & Embeddings]
+        WEB[Web Scraping<br/>Content Ingestion]
+    end
+    
+    UI --> API
+    API --> CHAT
+    API --> ART
+    CHAT --> RET
+    RET --> CHROMA
+    RET --> MONGO
+    CHAT --> OPENAI
+    ART --> MONGO
+    WEB --> ART
+    WEB --> CHROMA
+    
+    style UI fill:#e1f5fe
+    style API fill:#f3e5f5
+    style CHAT fill:#e8f5e8
+    style ART fill:#fff3e0
+    style RET fill:#fce4ec
+    style CHROMA fill:#e0f2f1
+    style MONGO fill:#fff3e0
+    style OPENAI fill:#f3e5f5
+    style WEB fill:#e8eaf6
+</pre>
+
+<h2>Technology Integration</h2>
+
+<h3>Frontend Stack</h3>
+<p>React 19 provides component-based UI development with concurrent features, automatic batching, and improved hydration for server-side rendering. The implementation uses functional components with hooks including useState for local state, useEffect for side effects, useCallback for memoized functions, and useRef for DOM references. Custom hooks like useDarkMode implement localStorage persistence with JSON serialization, useResponsiveSidebar handles responsive design with window resize listeners and aspect ratio calculations, and useBackendHealth monitors API connectivity with 30-second polling intervals and 5-second timeouts.</p>
+
+<p>Local storage integration preserves chat sessions with automatic serialization of complex state objects including message arrays, timestamps, and session metadata. Axios HTTP client uses direct URL calls with timeout configuration in health monitoring (5-second timeout). Component architecture uses functional components with prop passing and state lifting patterns managed through custom hooks.</p>
+
+<h3>Backend Stack</h3>
+<p>FastAPI serves as the API gateway with automatic OpenAPI documentation generation, request/response validation through Pydantic models, and async request handling using uvicorn ASGI server. The application includes dependency injection for service management, middleware configuration for CORS and error handling, and structured routing with APIRouter for modular endpoint organization.</p>
+
+<p>LangChain orchestrates AI workflows through retrieval chains, document processing pipelines, and prompt template management. The framework provides abstraction layers for different AI providers, document loaders for various file formats, text splitters for chunk management, and retriever interfaces for unified document access. OpenAI integration provides both chat completion using GPT models with configurable temperature settings and text embeddings through text-embedding-ada-002 with 1536-dimensional vectors for semantic search capabilities.</p>
+
+<h3>Data Management</h3>
+<p>MongoDB implementation uses dual-client architecture with AsyncIOMotorClient for API operations and PyMongo MongoClient for synchronous retriever operations. The async client handles chat storage, history retrieval, and session management with proper timezone handling using UTC timestamps. The sync client supports retriever operations that require immediate results with aggregation pipelines for complex queries and error handling with fallback mechanisms.</p>
+
+<p>ChromaDB manages vector embeddings with persistent file-based storage, HNSW (Hierarchical Navigable Small World) indexing for efficient similarity search, and OpenAI embeddings integration. The vector database supports similarity search with configurable k values, metadata filtering, and cosine similarity scoring. Connection management includes retry logic with exponential backoff, connection pooling for concurrent access, and error recovery mechanisms for network failures.</p>
+
+<h3>Deployment</h3>
+<p>Docker Compose orchestrates four services with precise resource allocation and networking configuration. The frontend container uses Node.js 16 Alpine with npm dependency management, build optimization, and static file serving. The backend container runs Python 3.10 slim with pip installation, dependency caching, and uvicorn server configuration with reload capabilities for development.</p>
+
+<p>The scraper container includes Chromium and ChromeDriver installation, cron scheduling with custom crontab configuration, and volume mounts for data persistence. MongoDB container uses the official mongo image with data volume persistence, custom networking, and configuration for development environments. Health checks implement curl commands with 30-second intervals, 10-second timeouts, and 3 retry attempts before marking services unhealthy.</p>
+
+<h1 id="user-query-workflow">User Query Workflow</h1>
+
+<p>LangChain's RetrievalQA chain coordinates a query processing pipeline that combines document retrieval with language model generation to produce contextual, source-backed responses. The workflow integrates multiple AI services, vector databases, and conversation stores to deliver accurate answers while maintaining conversation continuity and domain adherence. The pipeline implements sequential retrieval through EnsembleRetriever, weighted source combination, and multi-stage validation to ensure response quality and relevance.</p>
+
+<h2>Request Processing Flow</h2>
+
+<p>User queries follow a structured processing pathway starting from React component event handlers through FastAPI endpoint routing to specialized backend services. The chat API endpoint implements POST /chat for message processing with Pydantic request validation, GET /chat/history with session_id and limit parameters for conversation retrieval, and DELETE /chat/session/{session_id} for session cleanup with batch deletion operations.</p>
+
+<p>Request processing includes error handling with try-catch blocks, timeout management for external API calls, and fallback mechanisms for service failures. The FastAPI router implements dependency injection for service management, middleware integration for CORS and logging, and structured response formatting with proper HTTP status codes and error messages.</p>
+
+<h2>Session Management and Context</h2>
+
+<p>Session management maintains conversation continuity through UUID-based session identifiers generated by the frontend and persisted across both browser storage and backend databases. Each session encapsulates conversation history, user preferences, and retrieval context to enable coherent multi-turn dialogues. The system implements session isolation to prevent cross-contamination between different user conversations while maintaining efficient resource utilization.</p>
+
+<pre class="mermaid">
+sequenceDiagram
+    participant User
+    participant React as React Frontend
+    participant API as FastAPI Backend
+    participant Chat as Chat Service
+    participant Ensemble as Ensemble Retriever
+    participant Chroma as ChromaDB Retriever
+    participant MongoDB as MongoDB Retriever
+    participant LLM as OpenAI LLM
+    participant Validation as Reference Validation
+    participant Store as MongoDB Storage
+
+    User->>React: Types question and clicks send
+    React->>API: POST /chat {question, session_id}
+    API->>Chat: generate_response(question, session_id)
+    
+    Note over Chat,Ensemble: Create session-aware ensemble retriever
+    Chat->>Ensemble: create_ensemble_retriever(session_id)
+    Ensemble->>Chroma: create_chroma_retriever(session_id)
+    Ensemble->>MongoDB: MongoDBRetriever.create(session_id)
+    
+    Note over Chat,LLM: Execute retrieval QA chain
+    Chat->>Ensemble: Get relevant documents for query
+    
+    Note over Ensemble: Sequential Retrieval (70/30 weighted)
+    Ensemble->>Chroma: _get_relevant_documents(query)
+    Note over Chroma: 1. Get last 3 chats from MongoDB<br/>2. Enhance query with context<br/>3. Perform similarity search<br/>4. Return top-k=4 documents
+    Chroma->>Ensemble: Semantic search results (70% weight)
+    
+    Ensemble->>MongoDB: _get_relevant_documents(query)
+    Note over MongoDB: 1. Get last 5 chats for session<br/>2. Format as conversation context<br/>3. Return context documents
+    MongoDB->>Ensemble: Chat history context (30% weight)
+    
+    Ensemble->>Chat: Combined weighted results
+    Chat->>LLM: Generate response with context
+    Note over LLM: Use customer support prompt<br/>with domain restrictions
+    LLM->>Chat: Generated answer + source docs
+    
+    Chat->>API: {answer, source_docs}
+    
+    Note over API,Validation: Filter and validate references
+    API->>Validation: format_references(source_docs, question)
+    loop For each source document
+        Validation->>LLM: Check relevance with question
+        LLM->>Validation: YES/NO relevance score
+        Note over Validation: Only keep relevant docs<br/>Skip chat history sources<br/>Limit to top 2 references
+    end
+    Validation->>API: Filtered references list
+    
+    Note over API,Store: Store conversation
+    API->>Store: store_chat(question, answer, session_id)
+    Store->>API: Confirmation
+    
+    API->>React: {answer, references}
+    React->>User: Display bot response with references
+</pre>
+
+<h2>AI Processing Pipeline</h2>
+
+<p>The AI processing pipeline orchestrates multiple language model interactions to generate responses from retrieved context. Temperature settings of 0.3 balance creative language generation with factual consistency, ensuring responses remain natural while staying grounded in source material. Document concatenation strategies optimize context utilization by combining retrieved information into coherent prompts that respect token limits while preserving essential information.</p>
+
+<p>Prompt engineering techniques include domain enforcement through explicit role definitions, context injection through structured templates, and output formatting through response guidelines. The system implements multi-turn conversation awareness by incorporating previous dialogue turns into context windows, enabling coherent responses that build upon earlier exchanges. Response validation includes domain adherence checking, factual consistency verification, and reference attribution to maintain answer quality.</p>
+
+<h1 id="frontend-systems">Frontend Systems</h1>
+
+<p>React's component architecture enables modular UI development with reusable elements, state management, and efficient rendering optimization. The application implements multiple concurrent chat sessions, persistent storage, and responsive design adaptation through hooks patterns, context providers, and CSS-in-JS styling strategies.</p>
+
+<h2>Component Architecture and State Management</h2>
+
+<h3>Primary Application Controller</h3>
+<p>The main application component orchestrates global state management across multiple chat sessions, reference expansion states, and user interface preferences. It implements session creation workflows that generate cryptographically secure unique identifiers and establish persistent storage mechanisms. Historical conversation loading processes retrieve backend data through REST API calls and transform server response formats into optimized frontend data structures for efficient rendering and interaction.</p>
+
+<h3>Session Management Infrastructure</h3>
+<p>Session management infrastructure operates through dual-persistence strategies combining browser localStorage with backend database synchronization. Each conversational session encapsulates complete message histories, temporal metadata, user preferences, and interaction states. Session switching mechanisms maintain UI state isolation while preserving conversation context and reference expansion preferences across different dialogue threads.</p>
+
+<h3>Navigation and Interface Control</h3>
+<p>The sidebar navigation system provides comprehensive session management capabilities including conversation listing, session creation workflows, bulk deletion operations, and cross-session synchronization. Session persistence mechanisms automatically serialize complex state objects to browser storage while maintaining backend synchronization through API calls. The component implements responsive design patterns with collapsible layouts, touch-friendly interactions, and accessibility compliance.</p>
+
+<h3>Input Processing and Communication</h3>
+<p>Message input systems manage complex user interactions including text processing, submission workflows, and real-time feedback mechanisms. The implementation includes comprehensive error handling for network failures, loading state management during processing delays, and automatic session creation when no active conversations exist. Backend connectivity monitoring provides real-time health status indication with automatic retry mechanisms and degraded functionality modes.</p>
+
+<h2>Advanced User Interface Features</h2>
+
+<h3>Responsive Design Implementation</h3>
+<p>Responsive design systems implement viewport detection with aspect ratio calculations, dynamic layout adjustments, and device-specific optimization strategies. The design adapts to portrait orientations on mobile devices, landscape configurations on tablets, and wide-screen desktop environments through breakpoint management and component resizing algorithms.</p>
+
+<h3>Theme Management and Personalization</h3>
+<p>Theme management infrastructure supports dark mode implementation with system preference detection, manual toggle capabilities, and persistent storage of user selections. CSS custom properties enable seamless theme transitions while maintaining visual consistency across all interface elements. The system implements accessibility standards with proper contrast ratios and color blindness considerations.</p>
+
+
+
+<h2>Data Persistence and State Synchronization</h2>
+
+<h3>Browser Storage Integration</h3>
+<p>The application implements data persistence using browser localStorage with serialization strategies for complex object structures. Chat sessions persist conversation histories, user preferences, temporal metadata, and interface states through automatic JSON serialization. Session restoration mechanisms reconstruct application state on browser startup while maintaining data integrity and handling corrupted storage scenarios.</p>
+
+<h3>Custom Hook Architecture</h3>
+<p>Custom hook implementations encapsulate complex state logic including theme management with system preference detection, responsive interface control with device orientation awareness, and backend connectivity monitoring with health status polling. These abstractions provide clean separation of concerns, enable consistent behavior patterns across components, and facilitate testing through isolated logic units.</p>
+
+<h2>Enhanced User Experience Systems</h2>
+
+<h3>Reference Management and Display</h3>
+<p>Reference display systems implement expansion controls using Set-based state management to track visibility states across multiple conversation threads. The interface provides exclusive expansion patterns where activating one reference automatically collapses others, preventing information overload while maintaining context accessibility. Reference formatting includes external link handling with target="_blank" and rel="noopener noreferrer" attributes, and responsive layout adaptation.</p>
+
+<h3>Real-time Interface Updates</h3>
+<p>Real-time interface systems provide immediate visual feedback through coordinated state updates, smooth scrolling behaviors, and typing indicators. Automatic scroll management maintains conversation flow by tracking content changes and adjusting viewport positioning with smooth animation transitions. Loading state management includes typing indicators, disabled input states, and error recovery interfaces that enhance perceived performance during API interactions.</p>
+
+
+
+<h1 id="backend-systems">Backend Systems</h1>
+
+<p>FastAPI's async architecture enables concurrent request processing while LangChain orchestrates AI workflows through retrieval and generation chains. The backend implements specialized services for chat processing, article management, and document retrieval, each with distinct responsibilities and data access patterns.</p>
+
+<h2>FastAPI Application</h2>
+
+<h3>API Endpoints</h3>
+<p>The chat router implements POST /chat for message processing with ChatRequest validation (question, session_id), GET /chat/history with session_id and limit parameters for conversation retrieval, and DELETE /chat/session/{session_id} for session cleanup. Request validation uses Pydantic models (ChatRequest, ChatResponse) to ensure type safety, while response formatting includes structured data with answer text and reference objects containing titles and URLs.</p>
+
+<h3>CORS and Health Monitoring</h3>
+<p>CORS configuration uses wildcard origins (*) allowing all cross-origin requests, while the health endpoint provides service status monitoring. The Docker health check uses curl to test the /health endpoint with 30-second intervals, 10-second timeouts, and 3 retry attempts before marking the service unhealthy.</p>
+
+<h2>Retrieval Systems</h2>
+
+<h3>Ensemble Retriever</h3>
+<p>LangChain's EnsembleRetriever combines multiple retrieval sources with configurable weights. The system creates session-aware retrievers with weights=[0.7, 0.3], prioritizing semantic search (70%) over conversation history (30%). This balance ensures responses are primarily grounded in documentation while maintaining conversational context.</p>
+
+<h3>ChromaDB Integration</h3>
+<p>ChromaDB provides vector storage and similarity search using OpenAI's text-embedding-ada-002 model with persistent file-based storage. The ChromaRetriever class enhances queries by incorporating the last 3 conversation turns through a query enhancement prompt. The system performs similarity search with k=4 results and adds metadata tracking for both original and enhanced queries. Connection management includes retry logic with exponential backoff (3 attempts, increasing delay) and automatic vectorstore recreation for connection recovery.</p>
+
+<h3>MongoDB Integration</h3>
+<p>MongoDB stores conversation history using dual client architecture: AsyncIOMotorClient for API operations and MongoClient for synchronous retriever operations. The MongoDBRetriever class fetches the last 5 conversation turns per session using aggregation pipelines with sorting and limiting operations, then formats them as documents with "User: question" and "Assistant: answer" pairs for context preservation.</p>
+
+<h2>AI Processing</h2>
+
+<h3>Prompt Engineering</h3>
+<p>The customer support prompt establishes the AI's role as an Ardoq support representative with eight critical operational rules that enforce strict domain boundaries. Key rules include exclusive focus on Ardoq-related topics with immediate redirection for any off-topic queries, mandatory reliance on provided context rather than general knowledge, and conversational tone that mimics human support representatives rather than robotic responses.</p>
+
+<p>Additional rules establish fallback behaviors for insufficient context situations, directing users to official documentation when specific answers aren't available in the knowledge base. The prompt explicitly prohibits revealing knowledge of non-Ardoq topics, ensuring the AI maintains its role boundaries even when users attempt to discuss unrelated subjects. Response formatting guidelines ensure consistent, professional communication that balances helpfulness with domain restrictions while maintaining natural conversation flow.</p>
+
+<h3>Query Enhancement</h3>
+<p>The query enhancement prompt transforms natural language into optimized search terms using conversation history and current questions. It instructs the AI to create focused queries between 5-10 words that target documentation keywords. The enhancement process uses ChatOpenAI with temperature=0.1 for consistent optimization results.</p>
+
+<h3>Reference Validation</h3>
+<p>Reference validation uses a separate ChatOpenAI instance with temperature=0.1 to assess document relevance. The relevance check prompt asks: "Is this source relevant to answering the user's question? Respond with only 'YES' or 'NO'." The system processes the first 500 characters of each document and only includes references that return "YES".</p>
+
+<h2>Services Architecture</h2>
+
+<h3>Chat Service</h3>
+<p>The chatbot service creates RetrievalQA chains using ChatOpenAI with temperature=0.3, return_source_documents=True, and the customer support prompt. The generate_response function returns a dictionary with answer and source_docs keys, enabling downstream reference processing and validation.</p>
+
+<h3>Articles Service</h3>
+<p>The articles service manages content storage, retrieval, and metadata through MongoDB operations using AsyncIOMotorClient. It provides CRUD operations including UUID-based article creation with automatic ID generation, article fetching by UUID for reference enrichment, and deletion operations for content cleanup. The service uses Pydantic models for data validation with UTC timestamp handling and stores articles with title, URL, and timestamp metadata.</p>
+
+<h3>Database Services</h3>
+<p>MongoDB service implements both async and sync operations through dual client architecture. The async interface supports API operations like storing chats and retrieving history, while the sync interface enables retriever operations that require immediate results. ChromaDB service provides vector operations with retry logic for robust similarity search execution.</p>
+
+<h1 id="batch-processing">Batch Processing</h1>
+
+<p>Selenium WebDriver enables reliable content extraction from JavaScript-heavy documentation sites that require dynamic rendering. The batch processing system implements automated content ingestion, embedding generation, and maintenance operations through containerized scripts with cron scheduling.</p>
+
+<h2>Web Scraping Architecture</h2>
+
+<h3>Chrome WebDriver Configuration</h3>
+<p>Selenium uses Chrome WebDriver with headless operation and browser options for containerized deployment. The system configures custom user agents and uses system-installed Chromium for web scraping operations.</p>
+
+<h3>Content Discovery Process</h3>
+<p>The scraping system starts from help.ardoq.com/en/ and maintains visited sets and URL queues for breadth-first exploration. Each page processes sequentially to avoid overwhelming the server, with discovered links added to the queue for processing. The system filters links to stay within the help.ardoq.com domain and normalizes URLs by removing fragments to prevent duplicate processing.</p>
+
+<h3>Dynamic Content Handling</h3>
+<p>WebDriverWait uses a 15-second timeout to wait for body elements to load, followed by a 2-second delay for JavaScript rendering. The system extracts page titles from title tags and converts full page content to text using BeautifulSoup. Error handling includes TimeoutException for failed loads and WebDriverException for browser issues, with automatic driver cleanup in finally blocks.</p>
+
+<h3>Article Processing Workflow</h3>
+<p>Scraped content follows a two-stage storage process: initial saving to a temp directory with URL-based filenames, then posting to the articles service API with title and URL as query parameters and content in the request body. Successful API responses return UUIDs that become the final filenames when content moves from temp to main storage. Failed API posts leave files in temp for cleanup, preventing storage of unregistered content.</p>
+
+<h2>Content Processing Pipeline</h2>
+
+<h3>Article Storage Workflow</h3>
+<p>Scraped content flows through a temp directory for initial processing before final storage. The system extracts page titles, normalizes content, and posts to the articles service API. Successful API responses provide UUIDs that become filenames in the main storage directory, while failed uploads remain in temp for cleanup.</p>
+
+<h3>Embedding Generation</h3>
+<p>The create_embeddings script processes stored articles through OpenAI's text-embedding-ada-002 model and stores vectors in ChromaDB. The system uses RecursiveCharacterTextSplitter with 1000-character chunks and 200-character overlap for document processing. Embeddings are created in a temporary directory then atomically moved to replace existing data, ensuring consistent vector database state.</p>
+
+<h3>Cleanup Operations</h3>
+<p>Automated cleanup scripts handle temp folder cleanup and old article removal with 7-day retention policy. The cleanup process removes temporary files after processing and implements batch deletion (10 articles at a time) for old articles from both local storage and the articles service. These operations prevent storage accumulation and maintain system operation.</p>
+
+<h2>Containerized Execution</h2>
+
+<h3>Docker Configuration</h3>
+<p>The scraper container uses python:3.10-slim base image with Chromium and ChromeDriver installation through apt-get. The Dockerfile includes cron installation for scheduled execution, configures the crontab with proper permissions (0644), and sets up log management with tail for continuous monitoring. Volume mounts provide access to data directories while maintaining container isolation.</p>
+
+<h3>Automated Scheduling</h3>
+<p>Cron runs the complete pipeline weekly on Sundays at 2 AM (0 2 * * 0), executing scraping, temp cleanup, embedding generation, and old article cleanup in sequence. The pipeline chains four scripts together with output logging to /var/log/cron.log for execution tracking. This weekly schedule ensures fresh content while avoiding frequent server load during business hours.</p>
+
+<h3>Process Coordination</h3>
+<p>The batch processing workflow coordinates multiple operations: web scraping feeds the articles service, embedding generation processes stored articles into ChromaDB, and cleanup operations maintain system hygiene. This pipeline ensures consistent content flow from source websites to searchable knowledge base.</p>
+
+        </div>
+        </div>
+    
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#ffffff',
+                primaryTextColor: '#333333',
+                primaryBorderColor: '#cccccc',
+                lineColor: '#333333',
+                background: '#ffffff',
+                secondaryColor: '#f8f9fa',
+                tertiaryColor: '#e9ecef',
+                actorBkg: '#ffffff',
+                actorBorder: '#cccccc',
+                actorTextColor: '#333333',
+                activationBkgColor: '#f8f9fa',
+                activationBorderColor: '#cccccc',
+                sectionBkgColor: '#ffffff',
+                altSectionBkgColor: '#f8f9fa',
+                gridColor: '#e9ecef',
+                noteBkgColor: '#ffffff',
+                noteBorderColor: '#cccccc',
+                noteTextColor: '#333333'
+            },
+            flowchart: {
+                curve: 'basis',
+                htmlLabels: true
+            },
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35
+            }
+        });
+    </script>
+</body>
+</html>
